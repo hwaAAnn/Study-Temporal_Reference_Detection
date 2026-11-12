@@ -20,18 +20,22 @@ def token_logprobs(texts: Iterable[str], model_id: str, max_tokens: int = 200,
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
+    from tqdm import tqdm
+
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     torch_dtype = {"float16": torch.float16, "bfloat16": torch.bfloat16, "float32": torch.float32}[dtype]
     tok = AutoTokenizer.from_pretrained(model_id)
-    model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch_dtype).to(device).eval()
+    model = AutoModelForCausalLM.from_pretrained(model_id, dtype=torch_dtype).to(device).eval()
 
     texts = list(texts)
     ids_all = [tok(t, add_special_tokens=True)["input_ids"][:max_tokens] for t in texts]
     pad_id = tok.pad_token_id if tok.pad_token_id is not None else (tok.eos_token_id or 0)
-    out: list[np.ndarray] = []
+    out: list[np.ndarray | None] = [None] * len(ids_all)
+    order = sorted(range(len(ids_all)), key=lambda i: len(ids_all[i]))  # length-sorted batches, less padding
     with torch.no_grad():
-        for i in range(0, len(ids_all), batch_size):
-            chunk = ids_all[i:i + batch_size]
+        for b in tqdm(range(0, len(order), batch_size), desc=model_id.rsplit("/", 1)[-1], leave=False):
+            idx = order[b:b + batch_size]
+            chunk = [ids_all[i] for i in idx]
             L = max(len(c) for c in chunk)
             inp = torch.full((len(chunk), L), pad_id, dtype=torch.long)
             att = torch.zeros((len(chunk), L), dtype=torch.long)
@@ -39,12 +43,14 @@ def token_logprobs(texts: Iterable[str], model_id: str, max_tokens: int = 200,
                 inp[j, :len(c)] = torch.tensor(c)
                 att[j, :len(c)] = 1
             inp, att = inp.to(device), att.to(device)
-            logits = model(input_ids=inp, attention_mask=att).logits.float()
-            lp = torch.log_softmax(logits[:, :-1], dim=-1)
+            logits = model(input_ids=inp, attention_mask=att).logits
+            if not torch.isfinite(logits[att.bool()]).all():
+                raise FloatingPointError(f"non-finite logits from {model_id} in {dtype}; retry with float32")
+            lp = torch.log_softmax(logits[:, :-1].float(), dim=-1)
             tgt = inp[:, 1:]
             got = lp.gather(-1, tgt.unsqueeze(-1)).squeeze(-1).cpu().numpy()
-            for j, c in enumerate(chunk):
-                out.append(got[j, :len(c) - 1].astype(np.float64))
+            for j, (i, c) in enumerate(zip(idx, chunk)):
+                out[i] = got[j, :len(c) - 1].astype(np.float64)
 
     del model
     gc.collect()

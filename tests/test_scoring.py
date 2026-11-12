@@ -40,7 +40,7 @@ def test_metrics_on_separable_scores():
     assert pair_win_rate([0.8, 0.9], [0.1, 0.95]) == 0.5
 
 
-from trd.data import model_key, normalise_rows
+from trd.data import common_lengths, model_key, normalise_rows
 from trd.metrics import auprc, cluster_bootstrap_ci, cohens_d
 
 
@@ -55,6 +55,10 @@ def test_normalise_pairs_and_groups():
 def test_normalise_rejects_unknown_group():
     with pytest.raises(ValueError):
         normalise_rows([{"id": 1, "text": "t", "group": "Z"}])
+
+
+def test_common_lengths_cut_a_topic_to_its_shortest_text():
+    assert common_lengths(["p1", "p1", "p2", "p1", "p2"], [199, 150, 120, 180, 199]) == [150, 150, 120, 150, 120]
 
 
 def test_model_key():

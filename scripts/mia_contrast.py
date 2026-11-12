@@ -48,8 +48,17 @@ def main() -> None:
     ap.add_argument("--pre", default="2021-2018")
     ap.add_argument("--n-boot", type=int, default=1000)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--contrasts", nargs="*", default=None,
+                    help="name=m:label-m:label, e.g. mia_pre=pre:w22-pre:w21 (default: the arXiv set above)")
     ap.add_argument("--json", default=None)
     args = ap.parse_args()
+    contrast_defs = dict(CONTRASTS)
+    if args.contrasts:
+        contrast_defs = {}
+        for spec in args.contrasts:
+            name, rhs = spec.split("=")
+            a, b = rhs.split("-")
+            contrast_defs[name] = (tuple(a.split(":")), tuple(b.split(":")))
 
     recs = [json.loads(l) for l in Path(args.scores).read_text(encoding="utf-8").splitlines() if l.strip()]
     pairs = {"post": args.post.split("-"), "pre": args.pre.split("-")}
@@ -77,7 +86,7 @@ def main() -> None:
         return out
 
     def contrasts(g):
-        return {name: g[a] - g[b] for name, (a, b) in CONTRASTS.items() if a in g and b in g}
+        return {name: g[a] - g[b] for name, (a, b) in contrast_defs.items() if a in g and b in g}
 
     full = {label: np.arange(data[label]["n"]) for label, _, _ in periods}
     g0, c0 = gaps(full), None

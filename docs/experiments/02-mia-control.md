@@ -102,3 +102,33 @@ C 생성 중에 실제 중복 검증의 시험 스캔을 먼저 돌렸습니다(
 - AI 기준점: 같은 문서의 앞부분(약 30토큰)을 주고 C 생성기가 이어 쓰게 합니다(Fast-DetectGPT 방식). 주제와 지식 시대가 맞습니다.
 - 측정: AI 이전 쌍(2021−2018)에서 `mia_pre = gap_pre(학습 불가) − gap_pre(학습 가능)`. AI 보조 글이 없는 조건에서 "풀에 들어 있음"의 효과를 잽니다.
 - 남는 불확실성: DatedGPT가 풀에서 약 100B 토큰만 뽑았는지(누적 풀이면 문서당 학습 확률이 낮음), 해당 연도 크롤 전체를 썼는지 논문에 없습니다. 그래서 결과는 "풀에 들어 있음"의 효과이고, 실제 학습 효과보다 작게 나올 수 있습니다.
+
+### 02-b 데이터와 예측 (2026-11-13, 생성·채점 전)
+
+```bash
+export MSYS_NO_PATHCONV=1   # Git Bash: 안 하면 "/2022/"가 Windows 경로로 바뀜
+python scripts/sample_fineweb.py --dump CC-MAIN-2021-49 --url-regex "/202[01]/" --n 450 --out data/fw_2021.jsonl
+python scripts/sample_fineweb.py --dump CC-MAIN-2022-40 --url-regex "/2022/" --n 450 --out data/fw_2022.jsonl
+python scripts/generate_continuation.py --human data/fw_2021.jsonl --out data/pairs_fw2021.jsonl --per-generator 200 --human-group W21 --ai-group CW21
+python scripts/generate_continuation.py --human data/fw_2022.jsonl --out data/pairs_fw2022.jsonl --per-generator 200 --human-group W22 --ai-group CW22
+```
+
+| 그룹 | 출처 | 2018 풀 | 2021 풀 | 2024 풀 | 문서 |
+| --- | --- | --- | --- | --- | --- |
+| W21 / CW21 | CC-MAIN-2021-49, URL에 `/2020/`·`/2021/` | 없음 | **있음** | 있음 (누적이면) | 450편 (URL 연도 2021: 294, 2020: 156), 고유 사이트 435 |
+| W22 / CW22 | CC-MAIN-2022-40 (2022-09~10 크롤), URL에 `/2022/` | 없음 | 없음 | 있음 (누적이거나 다시 크롤됐으면) | 450편, 고유 사이트 426 |
+
+- 본문은 중앙값 약 700단어, FineWeb-Edu 교육 점수 중앙값 약 2.9입니다. 무작위 순서로 row group을 돌며 날짜 URL이 맞는 문서를 모았습니다(2021: 22개, 2022: 46개 row group).
+- C 기준점은 문서의 첫 30단어를 주고 "이 문장으로 시작하는 약 250단어 글"을 쓰게 합니다(생성기와 디코딩은 00과 같음). 사람 글과 AI 글은 모두 공백을 한 칸으로 정리해 한 문단으로 만듭니다(파일럿의 줄바꿈 결함 방지). 앞 30단어는 양쪽이 같아서 gap을 조금 희석합니다.
+- 한계: 일부 문서는 SEO 블로그로 보이며, ChatGPT 이전의 글 짜깁기 도구로 만든 글일 수 있습니다. 두 그룹에 비슷하게 섞여 있다고 가정합니다.
+
+**대비**
+- `mia_pre_web = gap_pre(W22) − gap_pre(W21)`: AI 이전 쌍에서 "2021 풀에 있음"의 효과. 둘 다 ChatGPT 이전이라 AI 보조 글 효과가 없습니다.
+- `mia_post_web = gap_post(W21) − gap_post(W22)`: AI 이후 쌍. W22는 2024 풀에만 있을 수 있고, W21은 2021·2024 풀 모두에 있을 수 있습니다.
+
+**예측**
+- mia_pre_web: +0.00 ~ +0.03 (작음). 한 번 본 문서의 흔적은 1.3B·100B 토큰 학습에서 작다고 봅니다(사전학습 LLM에 대한 MIA가 무작위에 가깝다는 기존 보고와 같은 방향). → 웹 문서에서도 **H1 성립**(CI 상한 < 0.13).
+- mia_post_web: +0.00 ~ +0.03.
+- 사람 글 평균 Δ2021−2018은 W21이 W22보다 0.05~0.15 높습니다. 주된 원인은 학습 포함이 아니라 지식입니다(2020~2021년 사건과 COVID-19 같은 용어는 2021 모델만 앎). 이 차이는 CW21에도 같이 생겨 gap에서 빠집니다.
+- gap_post(W21), gap_post(W22): +0.15 ~ +0.25 (앞 30단어 공유로 arXiv보다 약간 작음). gap_pre: −0.03 ~ +0.03.
+- 탐지 AUROC (CW vs W, Δ2024−2021): 0.80 ~ 0.92.

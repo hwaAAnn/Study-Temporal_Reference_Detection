@@ -45,6 +45,11 @@ def clean_generation(text: str, title: str) -> str:
 
 
 def generate(tag: str, titles: list[str], max_new_tokens: int, seed: int) -> list[str]:
+    return generate_prompts(tag, [PROMPT.format(title=t) for t in titles], max_new_tokens, seed)
+
+
+def generate_prompts(tag: str, messages: list[str], max_new_tokens: int, seed: int) -> list[str]:
+    """One user message per text, each model's own chat template and generation_config."""
     import torch
     from tqdm import tqdm
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -55,8 +60,8 @@ def generate(tag: str, titles: list[str], max_new_tokens: int, seed: int) -> lis
     if tok.pad_token_id is None:
         tok.pad_token = tok.eos_token
     model = AutoModelForCausalLM.from_pretrained(model_id, dtype=torch.float16).to("cuda").eval()
-    prompts = [tok.apply_chat_template([{"role": "user", "content": PROMPT.format(title=t)}],
-                                       tokenize=False, add_generation_prompt=True) for t in titles]
+    prompts = [tok.apply_chat_template([{"role": "user", "content": m}],
+                                       tokenize=False, add_generation_prompt=True) for m in messages]
     outs = []
     with torch.no_grad():
         for i in tqdm(range(0, len(prompts), bs), desc=tag):

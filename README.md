@@ -28,10 +28,10 @@ AI 문체를 조금 "먹은" 상태**이고, 2021년까지의 웹으로만 학�
 
 | ID | 실험 | 브랜치 | 마감 | 상태 |
 | --- | --- | --- | --- | --- |
-| 00 | [k=0 신호 확인 (go/no-go)](docs/experiments/00-k0-signal.md) | `exp/00-k0-signal` | 11/15 | 🟢 실행 가능 |
-| 01 | 연도 곡선: 12개 vintage에서 Δ가 2023 전후로 꺾이는가 | `exp/01-year-curve` | 11/22 | ⚪ 예정 |
-| 02 | MIA 혼동 통제: 학습 포함 여부 vs AI 문체 | `exp/02-mia-control` | 11/22 | ⚪ 예정 |
-| 03 | 놀람 기반 지식 토큰 필터 (k 스윕) | `exp/03-k-sweep` | 12/04 | ⏸ 00 결과 대기 |
+| 00 | [k=0 신호 확인 (go/no-go)](docs/experiments/00-k0-signal.md) | `exp/00-k0-signal` | 11/15 | ✅ go: arXiv 400쌍 Δ AUROC 0.920, H1~H3 성립. 단 단일 모델 likelihood가 0.993 |
+| 01 | 연도 곡선: 12개 vintage에서 Δ가 2023 전후로 꺾이는가 | `exp/01-year-curve` | 11/22 | 🟢 실행 가능 |
+| 02 | MIA 혼동 통제: 학습 포함 여부 vs AI 문체 | `exp/02-mia-control` | 11/22 | 🟢 실행 가능 (우선 권장) |
+| 03 | 놀람 기반 지식 토큰 필터 (k 스윕) | `exp/03-k-sweep` | 12/04 | 🟢 실행 가능 |
 | 04 | 기존 탐지기(Binoculars, Fast-DetectGPT, IRM)에 Δ를 더했을 때 | `exp/04-complement` | 12/11 | ⚪ 예정 |
 
 상태 표시: 🟢 실행 가능 · 🔵 진행 중 · ✅ 완료(main에 merge) · ⏸ 대기 · ❌ 중단(브랜치에 사유 기록) · ⚪ 예정
@@ -51,11 +51,14 @@ pip install torch --index-url https://download.pytorch.org/whl/cu126   # 로컬 
 pip install -r requirements.txt
 pip install -e .
 
-# 1) 데이터 준비: data/pairs.jsonl 에 {"id", "human", "ai", "generator"} 형식으로 저장 (docs/experiments/00-k0-signal.md 참고)
+# 1) 데이터 준비 (docs/experiments/00-k0-signal.md 참고)
+python scripts/fetch_arxiv.py --start 2025-07 --end 2026-10 --per-month 40 --out data/human_arxiv.jsonl   # 사람 글 (arXiv API, 약 3분)
+python scripts/generate_ai.py --human data/human_arxiv.jsonl --out data/pairs.jsonl --per-generator 200    # 같은 제목의 AI 글
 # 2) 점수 계산 (모델을 하나씩 올려서 VRAM 5GB 안에서 동작)
 python scripts/score_pairs.py --pairs data/pairs.jsonl --old datedgpt/datedgpt-2021-base --new datedgpt/datedgpt-2024-base --out outputs/k0.jsonl
-# 3) 평가
-python scripts/evaluate.py --scores outputs/k0.jsonl
+# 3) 평가 (생성기별 표, 쌍 bootstrap 95% CI, H1~H3 판정) 와 토큰 단위 분석
+python scripts/evaluate.py --scores outputs/k0.jsonl --by generator --json outputs/k0_eval.json
+python scripts/token_contrib.py --scores outputs/k0.jsonl --pairs data/pairs.jsonl
 ```
 
 ## 레포 구조
@@ -64,8 +67,13 @@ python scripts/evaluate.py --scores outputs/k0.jsonl
 docs/plan.md              연구 방향, 선행연구 비교, 위험 요소
 docs/experiments/         실험별 목적·가설·기각 기준
 src/trd/scoring.py        토큰 log-prob 계산, Δ 점수, 놀람 기반 필터
-src/trd/metrics.py        AUROC, TPR@FPR
+src/trd/metrics.py        AUROC, TPR@FPR, 쌍 단위 bootstrap CI
+scripts/fetch_arxiv.py    arXiv API → 사람 글 (2025-07 이후 cs 초록)
+scripts/generate_ai.py    같은 제목으로 AI 글 생성 → pairs.jsonl
+scripts/convert_raw_data.py  Fast-DetectGPT 형식 데이터 → pairs.jsonl (파일럿용)
 scripts/score_pairs.py    pairs.jsonl → 점수 파일
 scripts/evaluate.py       점수 파일 → 지표 표
+scripts/token_contrib.py  Δ 차이를 만드는 토큰과 극단 예시 읽기
+scripts/check_precision.py  GPU fp16 vs CPU fp32 점수 차이 확인
 tests/                    모델 없이 도는 단위 테스트
 ```

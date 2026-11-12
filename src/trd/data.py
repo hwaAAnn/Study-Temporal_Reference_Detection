@@ -43,6 +43,14 @@ def normalise_rows(rows: list[dict]) -> list[dict]:
     return items
 
 
+def common_lengths(pair_ids: list[str], lengths: list[int]) -> list[int]:
+    """For each item, the shortest length among the items that share its pair_id."""
+    shortest: dict[str, int] = {}
+    for p, n in zip(pair_ids, lengths):
+        shortest[p] = min(shortest.get(p, n), n)
+    return [shortest[p] for p in pair_ids]
+
+
 def model_key(model_id: str) -> str:
     """'datedgpt/datedgpt-2021-base' -> '2021'; falls back to the repo name."""
     m = re.search(r"(19|20)\d{2}", model_id.split("/")[-1])

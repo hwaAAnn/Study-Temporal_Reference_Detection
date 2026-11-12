@@ -37,11 +37,11 @@ DiD = [Δ_{2024,2021}(AI) − Δ_{2024,2021}(사람)] − [Δ_{2021,2018}(AI) �
 
 | ID | 실험 | 브랜치 | 중요도 | 마감 | 상태 |
 | --- | --- | --- | --- | --- | --- |
-| 00 | [k=0 신호 확인 + 모델 점검 + 첫 DiD](docs/experiments/00-k0-signal.md) | `exp/00-k0-signal` | 필수 | 11/15 | 🟢 실행 가능 |
-| 02 | MIA·시간 변화 분리: 학습 이전/이후 사람 글, 이후 AI 글 | `exp/02-mia-control` | **핵심 기여** | 11/22 | ⚪ 예정 |
-| 01 | 연도 곡선: 12개 vintage의 AI/사람 gap, 변화점 사후 확인 | `exp/01-year-curve` | 핵심 그림 | 11/29 | ⚪ 예정 |
+| 00 | [k=0 신호 확인 + 모델 점검 + 첫 DiD](docs/experiments/00-k0-signal.md) | `exp/00-k0-signal` | 필수 | 11/15 | ✅ go: H1~H4 성립. Δ AUROC 0.899, DiD +0.274 [0.254, 0.294], AI 이전 쌍 AUROC 0.42. 단 단일 모델 likelihood가 0.990 |
+| 02 | MIA·시간 변화 분리: 학습 이전/이후 사람 글, 이후 AI 글 | `exp/02-mia-control` | **핵심 기여** | 11/22 | 🟢 실행 가능 |
+| 01 | 연도 곡선: 12개 vintage의 AI/사람 gap, 변화점 사후 확인 | `exp/01-year-curve` | 핵심 그림 | 11/29 | 🟢 실행 가능 |
 | 04 | 기존 탐지기(Binoculars, Fast-DetectGPT)와 상보성: 놓친 글을 Δ가 잡는가 | `exp/04-complement` | 중요 | 12/11 | ⚪ 예정 |
-| 03 | 놀람 기반 지식 토큰 필터 (k 스윕) + 제거 토큰 유형 분석 | `exp/03-k-sweep` | 후순위 | 12/11 | ⏸ 00 결과 대기 |
+| 03 | 놀람 기반 지식 토큰 필터 (k 스윕) + 제거 토큰 유형 분석 | `exp/03-k-sweep` | 후순위 | 12/11 | 🟢 실행 가능 (00에서 k = 0~0.2 예비 확인: 결론 불변) |
 
 상태 표시: 🟢 실행 가능 · 🔵 진행 중 · ✅ 완료(main에 merge) · ⏸ 대기 · ❌ 중단(브랜치에 사유 기록) · ⚪ 예정
 
@@ -62,11 +62,17 @@ pip install -e .
 
 # 0) 모델 점검: 토크나이저 동일성, fp16 안전성
 python scripts/check_models.py --models datedgpt/datedgpt-2018-base datedgpt/datedgpt-2021-base datedgpt/datedgpt-2024-base --fp-check datedgpt/datedgpt-2021-base
-# 1) 데이터: data/pairs.jsonl (B/C 짝), data/extra.jsonl (D′ 등) — 형식은 docs/experiments/00-k0-signal.md
-# 2) 점수 계산 (모델을 하나씩 올려서 VRAM 5GB 안에서 동작)
-python scripts/score_texts.py --input data/all.jsonl --out outputs/k0.jsonl --models datedgpt/datedgpt-2018-base datedgpt/datedgpt-2021-base datedgpt/datedgpt-2024-base
-# 3) 평가: 탐지 지표 + 그룹별 Δ + DiD
-python scripts/evaluate.py --scores outputs/k0.jsonl --new 2024 --old 2021 --pre-new 2021 --pre-old 2018
+# 1) 데이터: data/pairs.jsonl (B/C 짝), data/extra.jsonl (D′) — 형식은 docs/experiments/00-k0-signal.md
+python scripts/fetch_arxiv.py --start 2025-07 --end 2026-10 --per-month 40 --out data/human_arxiv.jsonl   # B: arXiv API, 약 3분
+python scripts/generate_ai.py --human data/human_arxiv.jsonl --out data/pairs.jsonl --per-generator 200    # C: 같은 제목의 AI 초록
+python scripts/generate_old_lm.py --pairs data/pairs.jsonl --out data/extra.jsonl                         # D′: GPT-Neo-1.3B
+cat data/pairs.jsonl data/extra.jsonl > data/all.jsonl
+# 2) 점수 계산 (모델을 하나씩 올려서 VRAM 5GB 안에서 동작, 같은 pair_id의 글은 같은 길이로 맞춤)
+python scripts/score_texts.py --input data/all.jsonl --out outputs/k0.jsonl --models datedgpt/datedgpt-2018-base datedgpt/datedgpt-2021-base datedgpt/datedgpt-2024-base --batch-size 8
+# 3) 평가: 탐지 지표 + 그룹별 Δ + DiD + H1~H4 판정, 그리고 읽기용 진단
+python scripts/evaluate.py --scores outputs/k0.jsonl --new 2024 --old 2021 --pre-new 2021 --pre-old 2018 --by-generator --json outputs/k0_eval.json
+python scripts/token_contrib.py --scores outputs/k0.jsonl --input data/all.jsonl
+python scripts/plot_delta_hist.py --scores outputs/k0.jsonl --out docs/experiments/figs/00-delta-hist.png
 ```
 
 ## 레포 구조
@@ -76,9 +82,16 @@ docs/plan.md              연구 질문, Δ의 원인 분리, 데이터 그룹, 
 docs/experiments/         실험별 목적·가설·판단 기준
 src/trd/scoring.py        토큰 log-prob, Δ 점수, 놀람 기반 필터
 src/trd/metrics.py        AUROC·AUPRC·TPR@FPR, Cohen's d, 짝 단위 bootstrap CI
-src/trd/data.py           입력 형식 통일(짝/그룹), 모델 연도 키
+src/trd/data.py           입력 형식 통일(짝/그룹), 짝 단위 공통 길이, 모델 연도 키
 scripts/check_models.py   토크나이저 동일성, fp16 vs fp32 점검
+scripts/fetch_arxiv.py    B: arXiv API → 2025-07 이후 cs 초록
+scripts/generate_ai.py    C: 같은 제목으로 채팅 모델 초록 생성 → pairs.jsonl
+scripts/generate_old_lm.py  D′: 같은 제목으로 ChatGPT 이전 세대 모델(GPT-Neo) 초록 생성 → extra.jsonl
+scripts/convert_raw_data.py Fast-DetectGPT 형식 데이터 → 짝 행 (파일럿: 사람 A, davinci D′, 채팅 모델 C)
 scripts/score_texts.py    여러 vintage로 점수 계산 → 점수 파일
-scripts/evaluate.py       탐지 지표, 그룹별 Δ, DiD
+scripts/evaluate.py       탐지 지표, 그룹별 Δ, DiD, H1~H4 판정
+scripts/token_contrib.py  Δ 차이를 만드는 토큰과 극단 예시 읽기
+scripts/diag_residual.py  "새 모델이 예측 쉬운 글을 우대"하는지 확인 (log p_old로 보정한 잔차)
+scripts/plot_delta_hist.py  그룹별 Δ 분포 그림
 tests/                    모델 없이 도는 단위 테스트
 ```

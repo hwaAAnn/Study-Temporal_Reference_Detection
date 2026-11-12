@@ -80,6 +80,8 @@ def main() -> None:
     ap.add_argument("--tokenizer", default="datedgpt/datedgpt-2024-base")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--from-raw", default=None, help="reuse generations saved by an earlier run (no GPU needed)")
+    ap.add_argument("--human-group", default="B", help="group name of the human side (02 uses H19/H22/H24)")
+    ap.add_argument("--ai-group", default="C", help="group name of the AI side (02 uses C19/C22/C24)")
     args = ap.parse_args()
 
     saved = {}
@@ -123,7 +125,8 @@ def main() -> None:
             if kept < args.per_generator:
                 out_rows.append({"id": h["id"], "human": h["abstract"], "ai": ai, "generator": tag,
                                  "domain": "arxiv_cs", "title": h["title"], "published": h["published"],
-                                 "primary_category": h["primary_category"]})
+                                 "primary_category": h["primary_category"],
+                                 "human_group": args.human_group, "ai_group": args.ai_group})
                 kept += 1
         print(f"{tag}: generated={len(gens)} kept={kept} rejected={why}", flush=True)
         if kept < args.per_generator:

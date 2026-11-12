@@ -50,6 +50,8 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--contrasts", nargs="*", default=None,
                     help="name=m:label-m:label, e.g. mia_pre=pre:w22-pre:w21 (default: the arXiv set above)")
+    ap.add_argument("--diffs", nargs="*", default=["mia_post_clean-mia_pre"],
+                    help="differences of two contrasts with a joint bootstrap CI, e.g. mia_post_web-mia_pre_web")
     ap.add_argument("--json", default=None)
     args = ap.parse_args()
     contrast_defs = dict(CONTRASTS)
@@ -124,12 +126,14 @@ def main() -> None:
         lo, hi = ci(boots_c[name])
         print(f"{name:<20}{v:>+8.4f}  95% CI [{lo:+.4f}, {hi:+.4f}]")
         result["contrasts"][name] = {"value": v, "ci": [lo, hi]}
-    if "mia_pre" in c0 and "mia_post_clean" in c0:
-        diff = np.array(boots_c["mia_post_clean"]) - np.array(boots_c["mia_pre"])
-        v = c0["mia_post_clean"] - c0["mia_pre"]
-        lo, hi = ci(diff)
-        print(f"{'post_clean - pre':<20}{v:>+8.4f}  95% CI [{lo:+.4f}, {hi:+.4f}]")
-        result["contrasts"]["post_clean_minus_pre"] = {"value": v, "ci": [lo, hi]}
+    for spec in args.diffs or []:
+        a, b = spec.split("-")
+        if a in c0 and b in c0:
+            diff = np.array(boots_c[a]) - np.array(boots_c[b])
+            v = c0[a] - c0[b]
+            lo, hi = ci(diff)
+            print(f"{spec:<20}{v:>+8.4f}  95% CI [{lo:+.4f}, {hi:+.4f}]")
+            result["contrasts"][spec] = {"value": v, "ci": [lo, hi]}
     if args.json:
         Path(args.json).parent.mkdir(parents=True, exist_ok=True)
         Path(args.json).write_text(json.dumps(result, indent=1), encoding="utf-8")

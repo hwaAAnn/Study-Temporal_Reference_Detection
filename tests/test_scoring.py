@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from trd.metrics import auroc, pair_win_rate, tpr_at_fpr
+from trd.metrics import auroc, cluster_bootstrap, pair_win_rate, tpr_at_fpr
 from trd.scoring import delta_score, keep_mask
 
 
@@ -38,3 +38,23 @@ def test_metrics_on_separable_scores():
     assert auroc(labels, scores) == 1.0
     assert tpr_at_fpr(labels, scores, 0.01) == 1.0
     assert pair_win_rate([0.8, 0.9], [0.1, 0.95]) == 0.5
+
+
+def test_cluster_bootstrap_brackets_point_estimate():
+    rng = np.random.default_rng(1)
+    n = 200
+    labels = np.repeat([0, 1], n)
+    scores = np.concatenate([rng.normal(0, 1, n), rng.normal(1, 1, n)])
+    clusters = np.tile(np.arange(n), 2)  # pair i = (human i, AI i)
+    lo, hi = cluster_bootstrap(auroc, labels, scores, clusters, n_boot=300)
+    assert lo < auroc(labels, scores) < hi
+    assert 0.6 < lo and hi < 0.9
+
+
+def test_cluster_bootstrap_keeps_pairs_together():
+    # if whole pairs are resampled, every resample has as many AI texts as human texts
+    labels = np.array([0, 1] * 5)
+    scores = np.arange(10.0)
+    clusters = np.repeat(np.arange(5), 2)
+    balance = lambda l, s: float((l == 1).sum() - (l == 0).sum())
+    assert cluster_bootstrap(balance, labels, scores, clusters, n_boot=200) == (0.0, 0.0)

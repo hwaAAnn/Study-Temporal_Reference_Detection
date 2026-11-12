@@ -2,7 +2,7 @@
 #   로컬 GTX 1060 (CUDA 12.6): pip install torch --index-url https://download.pytorch.org/whl/cu126
 #   클라우드: 해당 머신 CUDA 버전에 맞는 빌드
 torch>=2.4
-transformers>=4.45
+transformers>=4.56   # `dtype=` keyword in from_pretrained
 accelerate>=1.0
 sentencepiece>=0.2   # DatedGPT 토크나이저
 numpy>=1.26

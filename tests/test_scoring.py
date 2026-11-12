@@ -38,3 +38,40 @@ def test_metrics_on_separable_scores():
     assert auroc(labels, scores) == 1.0
     assert tpr_at_fpr(labels, scores, 0.01) == 1.0
     assert pair_win_rate([0.8, 0.9], [0.1, 0.95]) == 0.5
+
+
+from trd.data import model_key, normalise_rows
+from trd.metrics import auprc, cluster_bootstrap_ci, cohens_d
+
+
+def test_normalise_pairs_and_groups():
+    items = normalise_rows([
+        {"id": 1, "human": "h", "ai": "a", "generator": "qwen"},
+        {"id": "x", "text": "t", "group": "D", "pair_id": "1"},
+    ])
+    assert [(i["group"], i["label"], i["pair_id"]) for i in items] == [("B", 0, "1"), ("C", 1, "1"), ("D", 1, "1")]
+
+
+def test_normalise_rejects_unknown_group():
+    with pytest.raises(ValueError):
+        normalise_rows([{"id": 1, "text": "t", "group": "Z"}])
+
+
+def test_model_key():
+    assert model_key("datedgpt/datedgpt-2021-base") == "2021"
+    assert model_key("manelalab/chrono-gpt-v1-20241231") == "2024"
+    assert model_key("gpt2") == "gpt2"
+
+
+def test_cohens_d_and_auprc():
+    assert cohens_d([1, 2, 3], [1, 2, 3]) == 0
+    assert cohens_d([2, 3, 4], [1, 2, 3]) == pytest.approx(1.0)
+    assert auprc([0, 1], [0.1, 0.9]) == 1.0
+
+
+def test_cluster_bootstrap_ci_contains_point_estimate():
+    rng = np.random.default_rng(1)
+    x = rng.normal(1.0, 1.0, 200)
+    clusters = np.repeat(np.arange(100), 2)
+    lo, hi = cluster_bootstrap_ci(clusters, lambda idx: float(x[idx].mean()), n_boot=300)
+    assert lo < x.mean() < hi and lo > 0.5

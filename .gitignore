@@ -1,0 +1,25 @@
+# 데이터와 산출물은 git 에 올리지 않습니다 (용량, 라이선스).
+data/
+outputs/
+*.npz
+*.npy
+*.pt
+*.safetensors
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# 에디터·OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 비밀
+.env
+*.key

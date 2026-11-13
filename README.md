@@ -39,8 +39,8 @@ DiD = [Δ_{2024,2021}(AI) − Δ_{2024,2021}(사람)] − [Δ_{2021,2018}(AI) �
 | --- | --- | --- | --- | --- | --- |
 | 00 | [k=0 신호 확인 + 모델 점검 + 첫 DiD](docs/experiments/00-k0-signal.md) | `exp/00-k0-signal` | 필수 | 11/15 | ✅ go: H1~H4 성립. Δ AUROC 0.899, DiD +0.274 [0.254, 0.294], AI 이전 쌍 AUROC 0.42. 단 단일 모델 likelihood가 0.990 |
 | 02 | [MIA·시간 변화 분리: 학습 이전/이후 사람 글, 이후 AI 글](docs/experiments/02-mia-control.md) | `exp/02-mia-control` | **핵심 기여** | 11/22 | ✅ H1 불성립: 새 모델이 학습한 사람 웹 글은 Δ가 AI 쪽으로 밀림(+0.085, AI 효과의 약 1/3, TPR@5% 0.06) → 탐지 주장은 새 모델 크롤 이후 글로 한정. H2 성립. arXiv는 학습 풀 밖이라 00 유지. ChatGPT 이후 사람 초록에서만 Δ 상승(+0.074) |
-| 05 | [AI 다듬기 보정: 사람 초록의 Δ 상승을 AI가 고친 글의 비중으로 환산](docs/experiments/05-polish-calibration.md) | `exp/05-polish-calibration` | 핵심 기여 (02 후속) | 11/22 | 🔵 진행 중: 예측 기록, 다듬기 생성 중 |
-| 01 | 연도 곡선: 12개 vintage의 AI/사람 gap, 변화점 사후 확인 | `exp/01-year-curve` | 핵심 그림 | 11/29 | 🟢 실행 가능 |
+| 05 | [AI 다듬기 보정: 사람 초록의 Δ 상승을 AI가 고친 글의 비중으로 환산](docs/experiments/05-polish-calibration.md) | `exp/05-polish-calibration` | 핵심 기여 (02 후속) | 11/22 | 🔵 결과 기록: H1~H4 성립. 다듬기는 AI 이후 쌍 Δ만 올림(위약 기울기 −0.01). 반응은 편집 비율의 제곱꼴이라 가벼운 교정은 거의 안 보임. 2024년 사람 초록은 글의 약 1/3(실제 LLM 기준 0.40~0.53), 초록으로는 약 절반이 다듬어진 것과 같음. 표지어 기준 0.21 ≈ Liang et al. 17.5%. 다듬은 글 탐지는 Δ가 likelihood보다 좋음(0.875 vs 0.792) |
+| 01 | 연도 곡선: 12개 vintage의 AI/사람 gap, 변화점 사후 확인 | `exp/01-year-curve` | 핵심 그림 | 11/29 | 🟢 실행 가능 (12개 vintage 받음, 토크나이저 동일 확인) |
 | 04 | 기존 탐지기(Binoculars, Fast-DetectGPT)와 상보성: 놓친 글을 Δ가 잡는가 | `exp/04-complement` | 중요 | 12/11 | ⚪ 예정 |
 | 03 | 놀람 기반 지식 토큰 필터 (k 스윕) + 제거 토큰 유형 분석 | `exp/03-k-sweep` | 후순위 | 12/11 | 🟢 실행 가능 (00에서 k = 0~0.2 예비 확인: 결론 불변) |
 
@@ -102,5 +102,6 @@ scripts/plot_period_means.py 시기별 사람·AI 평균 Δ 그림 (02)
 scripts/polish_texts.py      로컬 채팅 모델로 사람 초록을 세 강도(교정·다듬기·다시 쓰기)로 다듬기 (05)
 scripts/convert_apt_eval.py  APT-Eval(실제 LLM 5종이 다듬은 글)의 논문 초록 → 채점 입력 (05-b)
 scripts/polish_calibration.py 편집 비율당 Δ 상승, 실제 LLM 전이, AI가 고친 글의 비중 β, 표지어·탐지·분포 모양 (05)
+scripts/plot_polish_calibration.py 편집 비율별 Δ 상승, 실제 LLM 전이, β 그림 (05)
 tests/                    모델 없이 도는 단위 테스트
 ```

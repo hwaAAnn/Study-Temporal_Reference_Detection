@@ -19,6 +19,9 @@ shape of the 2024 distribution (a mixture of polished and untouched abstracts, o
 Bootstrap: H22 papers (slope and gap(H22) together), T papers, H19 papers and APT originals are each
 resampled with all of their versions.
 
+Post hoc (added after the first scored run and labelled so in the output; earlier numbers unchanged):
+the curvature d = b1 e + b2 e^2 through 0, and detection with every text cut to its first 100 tokens.
+
 Example:
   python scripts/polish_calibration.py --scores05 outputs/polish.jsonl --scores02 outputs/mia.jsonl \
       --texts data/02_all.jsonl data/polish_2022.jsonl data/polish_2019.jsonl data/apt_originals.jsonl \
@@ -45,6 +48,7 @@ APT_LARGE = ["GPT-4o", "Llama3.1-70B", "DeepSeek-V3", "Llama3-8B"]
 APT_OTHER = ["Llama2-7B"]  # often answers off-task in APT-Eval; reported apart
 LEVELS = ["proof", "polish", "rewrite"]
 APT_DEGREES = ["extreme_minor", "minor", "slight_major", "major"]
+BINS = np.array([0, .05, .1, .2, .3, .4, .5, .6, .7, 1.01])  # share-of-text-changed bins for the dose-response
 # words reported as markers of LLM-assisted writing (same 18 stems as 02)
 MARK = ["delve", "intricate", "showcas", "pivotal", "meticulous", "commendable", "notably", "realm", "underscore",
         "leverag", "enhanc", "comprehensive", "crucial", "various", "seamless", "innovative", "robust", "ensur"]
@@ -188,6 +192,7 @@ def main() -> None:
                                    "d_mark": marker_rate(text[i]) - marker_rate(text[o]), "id": i})
     apt_origs = sorted({r["orig"] for rows in apt.values() for r in rows})
     apt["local"] = [r for g in LOCAL for r in apt.get(g, [])]
+    apt["others"] = [r for g in APT_LARGE if g != "GPT-4o" for r in apt.get(g, [])]  # pooled, for the figure
 
     # ---------- population shifts (02's estimator) ----------
     def period_gap_items(store, hg):
@@ -230,6 +235,12 @@ def main() -> None:
         return A, B
 
     AB = {("all", k): per_paper(v22, k) for k in ("d_post", "g_post", "d_pre", "d_mark")}
+    # post hoc (added after scoring): curvature, d = b1 e + b2 e^2 through 0, from per-paper sums
+    quad = {k: np.zeros(NP) for k in ("e2", "e3", "e4", "ed", "e2d")}
+    for r in v22:
+        k, e_, d_ = P[r["paper"]], r["e"], r["d_post"]
+        for name, v in (("e2", e_ ** 2), ("e3", e_ ** 3), ("e4", e_ ** 4), ("ed", e_ * d_), ("e2d", e_ ** 2 * d_)):
+            quad[name][k] += v
     for g in LOCAL:
         AB[(g, "d_post")] = per_paper(v22, "d_post", lambda r, g=g: r["gen"] == g)
     lvl_sum = {}
@@ -240,7 +251,16 @@ def main() -> None:
                 S[P[r["paper"]]] += r["g_post"]
                 N[P[r["paper"]]] += 1
         lvl_sum[lv] = (S, N)
-    base_gap = np.array([base_items[p][0] if p in base_items else np.nan for p in papers22])
+    bin_sum = {}  # binned dose-response, so each bin mean gets a paper-bootstrap interval
+    for b, (lo, hi) in enumerate(zip(BINS, BINS[1:])):
+        for key in ("e", "d_post", "d_pre"):
+            S, N = np.zeros(NP), np.zeros(NP)
+            for r in v22:
+                if lo <= r["e"] < hi:
+                    S[P[r["paper"]]] += r[key]
+                    N[P[r["paper"]]] += 1
+            bin_sum[(b, key)] = (S, N)
+    base_gap =np.array([base_items[p][0] if p in base_items else np.nan for p in papers22])
     base_has = np.isfinite(base_gap)
     base_gap0 = np.where(base_has, base_gap, 0.0)
 
@@ -255,6 +275,12 @@ def main() -> None:
                 B[O[r["orig"]]] += r["e"] ** 2
             apt_AB[(pol, key)] = (A, B)
 
+    def hits_words(i):
+        return len(MARK_RE.findall(text[i])), len(text[i].split())
+
+    base_hw = np.array([hits_words(f"{p}:h") if p in base_items else (0, 0) for p in papers22], dtype=float)
+    tgt_hw = {lbl: np.array([hits_words(f"{p}:h") for p, _, _, _ in t["items"]], dtype=float)
+              for lbl, t in targets.items()}
     tgt_arr = {lbl: np.array([g for _, g, _, _ in t["items"]]) for lbl, t in targets.items()}
     tgt_trim = {lbl: np.array([p not in llm_topic for p, _, _, _ in t["items"]]) for lbl, t in targets.items()}
     base_trim = np.array([p not in llm_topic for p in papers22])
@@ -268,7 +294,15 @@ def main() -> None:
             out[f"s_{name}_{key}"] = float((w * A).sum() / (w * B).sum())
         for lv, (S, N) in lvl_sum.items():
             out[f"level_{lv}"] = float((w * S).sum() / (w * N).sum())
-        gb = float((w * base_gap0).sum() / (w * base_has).sum())
+        for (b, key), (S, N) in bin_sum.items():
+            den = (w * N).sum()
+            out[f"bin{b}_{key}"] = float((w * S).sum() / den) if den > 0 else np.nan
+        q = {k: float((w * v).sum()) for k, v in quad.items()}
+        out["quad_b1"], out["quad_b2"] = (float(x) for x in np.linalg.solve(
+            [[q["e2"], q["e3"]], [q["e3"], q["e4"]]], [q["ed"], q["e2d"]]))
+        rb = 1000 * (w * base_hw[:, 0]).sum() / (w * base_hw[:, 1]).sum()
+        out["mark_rate_base"] = rb
+        gb =float((w * base_gap0).sum() / (w * base_has).sum())
         gb_trim = float((w * base_gap0 * base_trim).sum() / (w * base_has * base_trim).sum())
         out["gap_base"] = gb
         wo = np.bincount(io, minlength=NO).astype(float)
@@ -288,12 +322,18 @@ def main() -> None:
             out[f"beta_{lbl}_local"] = shift / s_loc
             out[f"beta_{lbl}_local_trend"] = out[f"shift_{lbl}_trend"] / s_loc
             out[f"beta_{lbl}_local_nollm"] = out[f"shift_{lbl}_nollm"] / s_loc
-            for pol in APT_LARGE + APT_OTHER:
+            for pol in APT_LARGE + APT_OTHER + ["others"]:
                 r = out.get(f"apt_s_{pol}_d_post", np.nan) / out["apt_s_local_d_post"]
                 out[f"R_{pol}"] = r
                 out[f"beta_{lbl}_{pol}"] = shift / (s_loc * r)
             for lv in LEVELS:
                 out[f"alpha_{lbl}_{lv}"] = shift / out[f"level_{lv}"]
+            hw = tgt_hw[lbl][idx]
+            rt = 1000 * hw[:, 0].sum() / hw[:, 1].sum()
+            out[f"mark_rate_{lbl}"] = rt
+            out[f"betaW_{lbl}_local"] = (rt - rb) / out["s_all_d_mark"]
+            for pol in APT_LARGE:
+                out[f"betaW_{lbl}_{pol}"] = (rt - rb) / out.get(f"apt_s_{pol}_d_mark", np.nan)
         return out
 
     full = {lbl: np.arange(len(t["items"])) for lbl, t in targets.items()}
@@ -338,22 +378,23 @@ def main() -> None:
         print(f"  {lab:<32} {E(f's_all_{key}')}")
     for g in LOCAL:
         print(f"  {'paired d, ' + g:<32} {E(f's_{g}_d_post')}")
-    bins = np.array([0, .05, .1, .2, .3, .4, .5, .6, .7, 1.01])
-    e_all = np.array([r["e"] for r in v22])
-    d_all = np.array([r["d_post"] for r in v22])
-    print("  binned means (e bin: n, mean e, mean d):",
-          "; ".join(f"[{lo:.2f},{hi:.2f}) {((e_all >= lo) & (e_all < hi)).sum()} {e_all[(e_all >= lo) & (e_all < hi)].mean():.2f} "
-                    f"{d_all[(e_all >= lo) & (e_all < hi)].mean():+.3f}"
-                    for lo, hi in zip(bins, bins[1:]) if ((e_all >= lo) & (e_all < hi)).sum() >= 5))
-    res["bins_local_H22"] = [{"lo": float(lo), "hi": float(hi), "n": int(((e_all >= lo) & (e_all < hi)).sum()),
-                              "e": float(e_all[(e_all >= lo) & (e_all < hi)].mean()),
-                              "d": float(d_all[(e_all >= lo) & (e_all < hi)].mean())}
-                             for lo, hi in zip(bins, bins[1:]) if ((e_all >= lo) & (e_all < hi)).sum() >= 5]
+    print(f"  post hoc, d = b1 e + b2 e^2:     b1 {E('quad_b1')}, b2 {E('quad_b2')}")
+    e_all =np.array([r["e"] for r in v22])
+    res["bins_local_H22"], parts = [], []
+    for b, (lo, hi) in enumerate(zip(BINS, BINS[1:])):
+        n = int(((e_all >= lo) & (e_all < hi)).sum())
+        if n < 5:
+            continue
+        res["bins_local_H22"].append({"lo": float(lo), "hi": float(hi), "n": n, "e": est[f"bin{b}_e"],
+                                      "d": est[f"bin{b}_d_post"], "ci_d": ci(boots[f"bin{b}_d_post"]),
+                                      "d_pre": est[f"bin{b}_d_pre"], "ci_d_pre": ci(boots[f"bin{b}_d_pre"])})
+        parts.append(f"[{lo:.2f},{hi:.2f}) {n} {est[f'bin{b}_e']:.2f} {est[f'bin{b}_d_post']:+.3f}")
+    print("  binned means (e bin: n, mean e, mean d):", "; ".join(parts))
 
     print(f"\n== 05-b: APT-Eval, {len(apt_origs)} originals (paired d, Delta 2024-2021) ==")
     print(f"{'polisher':<24}{'n':>5}{'slope d/e':>24}{'R vs local':>22}{'slope pre':>11}{'marker slope':>14}")
     res["apt"] = {}
-    for pol in APT_LARGE + APT_OTHER + LOCAL + ["local"]:
+    for pol in APT_LARGE + APT_OTHER + LOCAL + ["local", "others"]:
         if pol not in apt:
             continue
         rstr = E2(f"R_{pol}") if f"R_{pol}" in est else ""
@@ -363,14 +404,13 @@ def main() -> None:
     print(f"{'polisher':<24}" + "".join(f"{lv:>22}" for lv in APT_DEGREES + LEVELS) + "   (mean e / mean d)")
     for pol in APT_LARGE + APT_OTHER + LOCAL:
         cells = []
+        for lv in sorted({r["level"] for r in apt.get(pol, [])}):  # percent levels are stored, not printed
+            rows = [r for r in apt[pol] if r["level"] == lv]
+            res["apt"][pol][lv] = {"n": len(rows)} | {k: float(np.mean([r[k] for r in rows]))
+                                                      for k in ("e", "d_post", "d_pre", "d_mark")}
         for lv in APT_DEGREES + LEVELS:
-            rows = [r for r in apt.get(pol, []) if r["level"] == lv]
-            cells.append(f"{np.mean([r['e'] for r in rows]):.2f} / {np.mean([r['d_post'] for r in rows]):+.3f}" if rows else "")
-            if rows:
-                res["apt"][pol][lv] = {"n": len(rows), "e": float(np.mean([r["e"] for r in rows])),
-                                       "d_post": float(np.mean([r["d_post"] for r in rows])),
-                                       "d_pre": float(np.mean([r["d_pre"] for r in rows])),
-                                       "d_mark": float(np.mean([r["d_mark"] for r in rows]))}
+            s = res["apt"].get(pol, {}).get(lv)
+            cells.append(f"{s['e']:.2f} / {s['d_post']:+.3f}" if s else "")
         print(f"{pol:<24}" + "".join(f"{c:>22}" for c in cells))
 
     print(f"\n== population: shift_T = gap({base_h}) - gap(T) (02's scores) ==")
@@ -386,23 +426,14 @@ def main() -> None:
         print("  share of abstracts if each AI-touched one got local level L: "
               + ", ".join(f"{lv} {E2(f'alpha_{lbl}_{lv}')}" for lv in LEVELS))
 
-    # ---------- markers: populations ----------
-    def pooled_rate(ids):
-        hits = sum(len(MARK_RE.findall(text[i])) for i in ids)
-        words = sum(len(text[i].split()) for i in ids)
-        return 1000 * hits / max(1, words)
-
-    r_base = pooled_rate([i for i in s02.ids(base_h)])
-    res["markers"] = {"base": r_base}
-    print(f"\n== AI-marker words (/1k words) ==\n{base_h}: {r_base:.2f}")
+    # ---------- markers: populations (rates pooled over words; bootstrap draws as above) ----------
+    res["markers"] = {"base": est["mark_rate_base"]}
+    print(f"\n== AI-marker words (/1k words) ==\n{base_h}: {est['mark_rate_base']:.2f}")
     for lbl, t in targets.items():
-        r_t = pooled_rate(s02.ids(t["hg"]))
+        r_t = est[f"mark_rate_{lbl}"]
         res["markers"][lbl] = r_t
-        line = f"{t['hg']}: {r_t:.2f} (rise {r_t - r_base:+.2f}); beta_W local {(r_t - r_base) / est['s_all_d_mark']:.2f}"
-        for pol in APT_LARGE:
-            m = est.get(f"apt_s_{pol}_d_mark", np.nan)
-            line += f", {pol} {(r_t - r_base) / m:.2f}"
-        print(line)
+        print(f"{t['hg']}: {r_t:.2f} (rise {r_t - est['mark_rate_base']:+.2f}); beta_W local {E2(f'betaW_{lbl}_local')}, "
+              + ", ".join(f"{pol} {E2(f'betaW_{lbl}_{pol}')}" for pol in APT_LARGE))
 
     # ---------- detection of polished text (each text on its own, up to 200 tokens) ----------
     print("\n== detection: polished vs original, AUROC (TPR@5%FPR) ==")
@@ -411,13 +442,15 @@ def main() -> None:
     for lv in LEVELS:
         p_ids = s05.ids(f"P{base_lbl}.{lv}")
         row = {}
-        for key, sign in (("post", 1), ("pre", 1), ("ll", 1)):
-            y = np.r_[np.zeros(len(h_ids)), np.ones(len(p_ids))]
-            x = sign * np.r_[[s05.mean(i, key) for i in h_ids], [s05.mean(i, key) for i in p_ids]]
+        y = np.r_[np.zeros(len(h_ids)), np.ones(len(p_ids))]
+        for key, n in (("post", None), ("pre", None), ("ll", None), ("post_100", 100), ("ll_100", 100)):
+            k = key.split("_")[0]
+            x = np.r_[[s05.mean(i, k, n) for i in h_ids], [s05.mean(i, k, n) for i in p_ids]]
             row[key] = (auroc(y, x), tpr_at_fpr(y, x, 0.05))
         res["detection"][lv] = row
         print(f"{lv:<9} Delta24-21 {row['post'][0]:.3f} ({row['post'][1]:.3f})   Delta21-18 {row['pre'][0]:.3f}   "
-              f"log p24 {row['ll'][0]:.3f} ({row['ll'][1]:.3f})")
+              f"log p24 {row['ll'][0]:.3f} ({row['ll'][1]:.3f})   | post hoc, first 100 tokens: "
+              f"Delta {row['post_100'][0]:.3f} ({row['post_100'][1]:.3f}), log p24 {row['ll_100'][0]:.3f} ({row['ll_100'][1]:.3f})")
     apt_h = s05.ids("APT.H")
     for pol in APT_LARGE + APT_OTHER:
         for lv in ("minor", "major"):

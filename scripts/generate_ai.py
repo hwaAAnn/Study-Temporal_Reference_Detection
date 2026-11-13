@@ -45,6 +45,11 @@ def clean_generation(text: str, title: str) -> str:
 
 
 def generate(tag: str, titles: list[str], max_new_tokens: int, seed: int) -> list[str]:
+    return generate_prompts(tag, [PROMPT.format(title=t) for t in titles], max_new_tokens, seed)
+
+
+def generate_prompts(tag: str, messages: list[str], max_new_tokens: int, seed: int) -> list[str]:
+    """One user message per text, each model's own chat template and generation_config."""
     import torch
     from tqdm import tqdm
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -55,8 +60,8 @@ def generate(tag: str, titles: list[str], max_new_tokens: int, seed: int) -> lis
     if tok.pad_token_id is None:
         tok.pad_token = tok.eos_token
     model = AutoModelForCausalLM.from_pretrained(model_id, dtype=torch.float16).to("cuda").eval()
-    prompts = [tok.apply_chat_template([{"role": "user", "content": PROMPT.format(title=t)}],
-                                       tokenize=False, add_generation_prompt=True) for t in titles]
+    prompts = [tok.apply_chat_template([{"role": "user", "content": m}],
+                                       tokenize=False, add_generation_prompt=True) for m in messages]
     outs = []
     with torch.no_grad():
         for i in tqdm(range(0, len(prompts), bs), desc=tag):
@@ -80,6 +85,8 @@ def main() -> None:
     ap.add_argument("--tokenizer", default="datedgpt/datedgpt-2024-base")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--from-raw", default=None, help="reuse generations saved by an earlier run (no GPU needed)")
+    ap.add_argument("--human-group", default="B", help="group name of the human side (02 uses H19/H22/H24)")
+    ap.add_argument("--ai-group", default="C", help="group name of the AI side (02 uses C19/C22/C24)")
     args = ap.parse_args()
 
     saved = {}
@@ -123,7 +130,8 @@ def main() -> None:
             if kept < args.per_generator:
                 out_rows.append({"id": h["id"], "human": h["abstract"], "ai": ai, "generator": tag,
                                  "domain": "arxiv_cs", "title": h["title"], "published": h["published"],
-                                 "primary_category": h["primary_category"]})
+                                 "primary_category": h["primary_category"],
+                                 "human_group": args.human_group, "ai_group": args.ai_group})
                 kept += 1
         print(f"{tag}: generated={len(gens)} kept={kept} rejected={why}", flush=True)
         if kept < args.per_generator:

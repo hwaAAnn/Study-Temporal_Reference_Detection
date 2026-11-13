@@ -1,12 +1,15 @@
 """Experiment 01 figure: when do DatedGPT vintages start to prefer AI-written text?
 
-(a) G(v): how much vintage v prefers a same-title chat-model abstract over the human one (B/C, 2025+), with
-    95% bootstrap intervals over pairs; the line fitted to the pre-ChatGPT vintages 2013-2022 and its 95%
-    prediction band from their scatter (model-to-model noise).
+(a) G(v): how much vintage v prefers a same-title chat-model abstract over the human one (B/C, 2025+); the
+    line fitted to the pre-ChatGPT vintages 2013-2022 and its 95% prediction band from their scatter
+    (model-to-model noise). No per-point intervals: the same 400 pairs enter every vintage, so the interval
+    of a level says nothing about the gap between vintages; the departures' intervals are in (b).
 (b) Each curve minus its own 2013-2022 line: chat AI vs human (G), polishing slope on the same text (S),
-    drift of 2024 human abstracts toward AI (U), GPT-Neo vs human (D'). Intervals at 2023 and 2024.
+    drift of 2024 human abstracts toward AI (U), GPT-Neo vs human (D'). 95% bootstrap intervals over texts
+    at 2023 and 2024.
 (c) Membership fingerprint: FineWeb-Edu documents minus their AI continuations (M), relative to their
-    2013-2019 mean, for documents from the 2021 and 2022 crawls.
+    2013-2019 mean, for documents from the 2021 and 2022 crawls. After 2022 the AI continuation side is
+    favoured (the shift of a and b), so the drop there is not membership.
 
 Colours follow the entity: slot 1 blue = chat-model text, slot 2 orange = polishing, slot 3 aqua = human
 drift; ink grey = GPT-Neo and the web documents (told apart by marker and direct label).
@@ -74,17 +77,15 @@ def main() -> None:
     # ---- (a) main curve with the pre-ChatGPT line and prediction band ----
     ax = axes[0]
     g = cur("G")
-    lo = g - np.array([c[0] for c in C["G"]["curve_ci"]])
-    hi = np.array([c[1] for c in C["G"]["curve_ci"]]) - g
     line, se = trend(years, g)
     ax.fill_between(years, line - T975_8 * se, line + T975_8 * se, color=INK_3, alpha=0.18, linewidth=0)
     ax.plot(years[years <= 2022], line[years <= 2022], color=INK_2, linewidth=1.3)
     ax.plot(years[years >= 2022], line[years >= 2022], color=INK_2, linewidth=1.3, linestyle="--")
-    ax.errorbar(years, g, yerr=[lo, hi], color=BLUE, marker="o", markersize=6, linewidth=1.6, capsize=2.5,
-                elinewidth=1.2, **dot)
+    ax.plot(years, g, color=BLUE, marker="o", markersize=6, linewidth=1.6, **dot)
     e = C["G"]
-    ax.annotate(f"r(2024) = {e['r2024']:+.2f}\nz = {e['z2024']:.0f}", (2024, g[-1]), xytext=(-8, -2),
-                textcoords="offset points", ha="right", va="top", fontsize=8, color=INK_2)
+    ax.text(0.03, 0.96, "departure from the line\n"
+            f"2023: r = {e['r2023']:+.2f} (z = {e['z2023']:.0f})\n2024: r = {e['r2024']:+.2f} (z = {e['z2024']:.0f})",
+            transform=ax.transAxes, ha="left", va="top", fontsize=8, color=INK_2, linespacing=1.4)
     ax.set_ylabel("G(v) = log p(AI) − log p(human) (nats/token)")
     ax.set_title("(a) Same-title chat-model vs human abstracts (2025+)", loc="left", fontsize=10, color=INK)
 
@@ -119,8 +120,10 @@ def main() -> None:
                 label=f"{crawl}-crawl documents")
     ax.legend(loc="upper left", frameon=False, fontsize=7.5, handlelength=2.2)
     f = res["f"]
-    ax.text(0.02, 0.04, f"2021 peak gone at 2022: f = {f['value']:.2f} [{f['ci'][0]:.2f}, {f['ci'][1]:.2f}]\n"
-            "(1 = each vintage uses its own year's crawl)", transform=ax.transAxes, fontsize=7.5, color=INK_2)
+    ax.text(0.02, 0.04, f"2021 peak lost at 2022: f = {f['value']:.2f} [{f['ci'][0]:.2f}, {f['ci'][1]:.2f}]\n"
+            "(1 = own year's crawl only, 0 = cumulative)\n"
+            "drop after 2022: AI continuation favoured (a, b)",
+            transform=ax.transAxes, fontsize=7.5, color=INK_2, linespacing=1.4)
     ax.set_ylabel("doc − its AI continuation, vs 2013–19 mean")
     ax.set_title("(c) Web documents: which vintage saw them", loc="left", fontsize=10, color=INK)
 

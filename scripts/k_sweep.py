@@ -192,6 +192,35 @@ def removed_types(t: Tok, bc, bd, k: float, tokenizer: str) -> tuple[dict, dict]
     return types, tops
 
 
+def human_tail(t: Tok, bc, k: float, tokenizer: str) -> dict:
+    """(Post hoc) Are the human abstracts with the highest Delta (the false positives at low FPR) the ones with
+    LLM-field terms, and does the filter pull that tail down more than it moves the AI texts?"""
+    from transformers import AutoTokenizer
+    tok = AutoTokenizer.from_pretrained(tokenizer)
+    llm = np.array([token_types(tok.convert_ids_to_tokens([int(v) for v in t.ids[h][:n]]))["llm_term"].mean()
+                    for _, h, _, n in bc])
+    out = {}
+    print(f"\n=== (post hoc) human high-Delta tail, k = 0 vs {k:g} ===")
+    for pname, pair in (("2024-2021", POST), ("2024-2022", POST22)):
+        r = {}
+        for kk in (0.0, k):
+            h = np.array([t.delta(hh, n, pair, kk) for _, hh, _, n in bc])
+            a = np.array([t.delta(aa, n, pair, kk) for _, _, aa, n in bc])
+            top = h >= np.quantile(h, 0.95)
+            r[f"k={kk:g}"] = {"human_q95": float(np.quantile(h, 0.95)), "ai_mean": float(a.mean()),
+                              "human_mean": float(h.mean()), "llm_share_top5": float(llm[top].mean())}
+            if kk == 0.0:
+                h0 = h
+        r["llm_share_all"] = float(llm.mean())
+        r["corr_drop_llm"] = float(np.corrcoef(h0 - h, llm)[0, 1])
+        out[pname] = r
+        a_, b_ = r["k=0"], r[f"k={k:g}"]
+        print(f"Delta{pname}: human 95th pct {a_['human_q95']:+.3f} -> {b_['human_q95']:+.3f}; AI mean "
+              f"{a_['ai_mean']:+.3f} -> {b_['ai_mean']:+.3f}; LLM-term share, top-5% humans {a_['llm_share_top5']:.3f} "
+              f"vs all {r['llm_share_all']:.3f}; corr(human drop, LLM-term share) {r['corr_drop_llm']:+.2f}")
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--scores", nargs="+", required=True, help="01 score files (need 2018, 2021, 2022, 2024)")
@@ -305,6 +334,7 @@ def main() -> None:
     types, tops = {}, {}
     if args.type_k in ks and args.type_k > 0:
         types, tops = removed_types(t, bc, bd, args.type_k, args.tokenizer)
+    tail = human_tail(t, bc, 0.05, args.tokenizer) if 0.05 in ks else {}
 
     # ---- hypotheses ----
     j05, j10, j20 = ki.get(0.05), ki.get(0.1), ki.get(0.2)
@@ -327,7 +357,7 @@ def main() -> None:
     if args.json:
         out = {"ks": ks, "point": {q: v.tolist() for q, v in point.items()},
                "ci": {q: v.tolist() for q, v in ci.items()}, "detection": det, "types": types,
-               "top_removed": tops, "verdict": verdict}
+               "top_removed": tops, "human_tail_posthoc": tail, "verdict": verdict}
         Path(args.json).write_text(json.dumps(out, indent=1, ensure_ascii=False), encoding="utf-8")
         print(f"\nwrote {args.json}")
 

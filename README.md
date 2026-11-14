@@ -108,6 +108,8 @@ scripts/plot_year_curve.py   연도 곡선 그림 (01)
 scripts/fetch_raid.py        RAID 벤치마크를 받으면서 한 도메인만 남기기 (04)
 scripts/convert_raid.py      RAID 초록 표본 → 채점 입력 (04)
 scripts/baseline_scores.py   기존 zero-shot 탐지기: Binoculars, Fast-DetectGPT (6GB용 작은 모델) (04)
+scripts/det04.py             공개 벤치마크 탐지 비교: 조건별 AUROC·TPR, 상보성(구제율·결합), 시간 경계 대조 (04)
+scripts/plot_det04.py        탐지기별·조건별 AUROC 그림 (04)
 scripts/web_doc_curves.py    사람 글만의 vintage 곡선: 크롤 데이터가 누적인지 탐색 (01)
 tests/                    모델 없이 도는 단위 테스트
 ```

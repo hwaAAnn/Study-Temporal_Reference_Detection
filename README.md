@@ -43,6 +43,7 @@ DiD = [Δ_{2024,2021}(AI) − Δ_{2024,2021}(사람)] − [Δ_{2021,2018}(AI) �
 | 01 | [연도 곡선: 12개 vintage의 AI/사람 gap, 변화점 사후 확인](docs/experiments/01-year-curve.md) | `exp/01-year-curve` | 핵심 그림 | 11/29 | ✅ H1~H4 성립: AI 글 선호는 10년간 평평(−0.003/년, 모델 잡음 0.009)하다가 2023 vintage부터 이탈(r 2023 +0.20, 2024 +0.27, z 17·22). 같은 글을 다듬기만 해도 같이 이탈, GPT-Neo 글은 안 오름, 사람 초록의 AI 쪽 이동도 2023부터. vintage 데이터는 누적 아님(그해 크롤 + 이월, f 0.26). 탐지 쌍은 2024−2022가 최선(AUROC 0.950) |
 | 04 | [기존 탐지기와 비교: 공개 벤치마크(RAID 초록, APT-Eval)에서 Δ·s_λ vs Binoculars·Fast-DetectGPT, 상보성](docs/experiments/04-complement.md) | `exp/04-complement` | 중요 | 12/11 | ✅ H2·H3·H5 성립, H1·H4 불성립(1~3B 탐지기 기준). AI가 다듬은 글(APT 강)에서 s_0.9 0.847 > likelihood 0.815 > Binoculars(1B) 0.790 > Fast-DetectGPT 0.626. AI가 처음부터 쓴 글은 Binoculars가 우세(0.91~1.00). 이득은 ChatGPT 경계에서 옴(AI 이전 쌍은 이득 없음). Δ는 paraphrase에 가장 약함. Falcon-7B 비교(Runpod)는 후속 결정 대기 |
 | 03 | [놀람 기반 지식 토큰 필터 (k 스윕) + 제거 토큰 유형 분석](docs/experiments/03-k-sweep.md) | `exp/03-k-sweep` | 후순위 | 12/11 | ✅ H1·H2·H4 성립, H3 (b) 불성립. 토큰 10%를 빼도 DiD 95% 유지, 위약 그대로. 단 필터는 지식 필터가 아님: 사람 글에서는 LLM 분야 용어를, AI 글에서는 채팅 문체 단어(leverage, comprehensive)를 뺌 → "지식 통제"로 쓰지 않음. 탐지에는 도움(사람 쪽 오탐 꼬리를 깎음): k = 0.05에서 Δ2024−2022 AUROC 0.959, TPR@5% 0.65 → 0.73 |
+| 07 | [TiC-LM Oracle: 품질 분류기 없이 처음부터 학습한 계열(2013-05~2024-07, 7개)에서의 재현](docs/experiments/07-tic-oracle.md) | `exp/07-tic-oracle` | 핵심 그림 (분류기 반론) | 11/29 | ✅ H1~H4 성립. AI 선호가 2013-05~2023-01 평평(−0.003/년, 잡음 0.009)하다가 2024-07에서 이탈(r +0.191, z 16). 다듬기도 이탈(z 21), GPT-Neo 글은 안 오름, 사람 초록 이동도 작게 이탈(z 3.2). 분류기 없는 데이터·다른 구조·토크나이저에서 01 재현 → FineWeb-Edu 분류기 반론에 답함. 7개 시점 모두 fp16 점검 통과 |
 
 상태 표시: 🟢 실행 가능 · 🔵 진행 중 · ✅ 완료(main에 merge) · ⏸ 대기 · ❌ 중단(브랜치에 사유 기록) · ⚪ 예정
 
@@ -113,5 +114,11 @@ scripts/plot_det04.py        탐지기별·조건별 AUROC 그림 (04)
 scripts/web_doc_curves.py    사람 글만의 vintage 곡선: 크롤 데이터가 누적인지 탐색 (01)
 scripts/k_sweep.py           놀람 필터 k 스윕: DiD·위약·D′·polish_24·다듬기 기울기·탐지, 무작위 제거 대조, 제거 토큰 유형 (03)
 scripts/plot_k_sweep.py      k 스윕 그림 (03)
+src/trd/tic.py               TiC-LM Oracle(open_lm) 불러오기·변환·채점 (07)
+scripts/tic_check.py         TiC-LM 체크포인트 fp16 변환, CPU fp32 기준값, fp16 규칙 비교 (07)
+scripts/score_tic.py         TiC-LM 시점 하나로 점수 계산 → 점수 파일 (07)
+scripts/run_07_tic.sh        TiC-LM 1B 일곱 시점 받기·점검·채점 체인 (07)
+scripts/tic_curve.py         TiC-LM 곡선, ChatGPT 이전 여섯 시점 추세 이탈(r, z), 단계 크기(J, z_J), 탐지 (07)
+third_party/open_lm/         open_lm 모델 코드(커밋 9bb92ef, MIT), TiC-LM용 (07)
 tests/                    모델 없이 도는 단위 테스트
 ```

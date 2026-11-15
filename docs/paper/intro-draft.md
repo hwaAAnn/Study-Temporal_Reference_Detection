@@ -1,6 +1,6 @@
 # 서론 초안 (영어, 2026-11-14)
 
-논문 서론 초안입니다. 숫자는 00~03, 05의 결과이고, 04(탐지) 단락은 결과가 나오면 채웁니다. `[CITE: …]`는 선행연구 조사 뒤 확인할 인용입니다.
+논문 서론 초안입니다. 숫자는 00~05의 결과입니다. 04(탐지) 단락과 5번 기여는 로컬 결과(11/15, 작은 기존 탐지기)로 채웠고, Falcon-7B 설정과 비교하기 전입니다. `[CITE: …]`는 선행연구 조사 뒤 확인할 인용입니다.
 
 ---
 
@@ -40,7 +40,7 @@ Our findings:
 - **How much, in human writing.** From the same vintage onward, human arXiv abstracts written in 2024 shift toward AI style. The size of the shift is what we would see if about a third of their text had been polished by an LLM (0.40–0.53 when calibrated on commercial LLMs). The estimate holds up when writers avoid marker words.
 - **Membership.** When the newer model was trained on a human web document, that document looks AI-written by about a third of the AI effect. This is enough to cut the true-positive rate at 5% false-positive rate to 0.06. Likelihood-difference measurements are therefore valid only for text written after the newer model's crawl.
 - **Knowledge filters do not separate knowledge from style.** A common remedy is to drop the tokens the older model finds most surprising. In human text it removes new technical terms, but in AI text it removes the chat-style words themselves. Knowledge has to be controlled by design, not by filtering.
-- **Detection.** [04 — TBD. A mixture of likelihood and Δ, s_λ = log p_new − λ·log p_old, keeps the strengths of both: it does as well as likelihood on text an LLM wrote from scratch, and as well as Δ on human text an LLM polished. Report: public benchmarks (RAID abstracts, APT-Eval); comparison with Binoculars and Fast-DetectGPT; complementarity; and the time-boundary control (the same formula built from a pre-ChatGPT pair gives no gain).]
+- **Detection.** The same pair detects human text that an LLM has polished. On heavily polished APT-Eval texts, s_λ = log p_new − λ·log p_old (λ fixed on development data) reaches an AUROC of 0.85. Likelihood under the newer model reaches 0.82, and Binoculars and Fast-DetectGPT reach 0.79 and 0.63 at the same 1–3B model budget. The gain over likelihood exists only when the pair straddles ChatGPT; the same formula built from a pre-ChatGPT pair gives none. On text an LLM wrote from scratch, Binoculars remains stronger.
 
 We make the following contributions:
 
@@ -48,7 +48,7 @@ We make the following contributions:
 2. **Absorption curve.** A twelve-year curve showing when web-trained models absorbed chat style.
 3. **Human writing.** Estimates of AI influence on human scientific writing that hold up when writers avoid marker words.
 4. **Scope.** A quantification of the membership confound and of the scope it imposes on likelihood-based measurement and detection.
-5. **Detection.** [If 04 supports it] A training-free detector for LLM-polished human text that complements existing zero-shot detectors.
+5. **Detection.** A training-free detector for LLM-polished human text that outperforms likelihood and small-model zero-shot detectors on a public benchmark, with a gain that exists only when the model pair straddles ChatGPT.
 
 ---
 
@@ -63,4 +63,5 @@ We make the following contributions:
 - 주의:
   - "about a third"는 05의 직선 보정 β(로컬 0.34)입니다. 초록 단위(α)로는 약 절반입니다. 본문에서는 둘을 구분해 씁니다.
   - "stays at its 2024 level"은 추세를 보정한 Δ 기반 β(2024 0.27, 2025 이후 0.28)를 말합니다.
-- 04 결과가 나쁘면 5번 기여와 탐지 단락을 줄이고, 측정만으로 서론을 닫습니다.
+- 04 (11/15): APT 강 s_0.9 0.847, likelihood 0.815, Binoculars(Llama-3.2-1B 쌍) 0.790, Fast-DetectGPT(GPT-Neo-2.7B) 0.626. 시간 경계 이득 +0.039 [+0.025, +0.054]. 결합은 이득이 없어(H4 불성립) "complements"라는 표현을 뺐습니다.
+  - Binoculars는 Llama가 다듬은 글에서 s_λ와 비슷하거나 낫고, DeepSeek·GPT-4o가 다듬은 글에서 크게 뒤집니다. 7B 설정에서 APT 강의 순서가 바뀌면 탐지 단락은 "likelihood보다 낫고, 그 이득이 ChatGPT 경계에서 온다"까지로 줄입니다.

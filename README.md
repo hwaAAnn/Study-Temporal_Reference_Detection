@@ -41,7 +41,7 @@ DiD = [Δ_{2024,2021}(AI) − Δ_{2024,2021}(사람)] − [Δ_{2021,2018}(AI) �
 | 02 | [MIA·시간 변화 분리: 학습 이전/이후 사람 글, 이후 AI 글](docs/experiments/02-mia-control.md) | `exp/02-mia-control` | **핵심 기여** | 11/22 | ✅ H1 불성립: 새 모델이 학습한 사람 웹 글은 Δ가 AI 쪽으로 밀림(+0.085, AI 효과의 약 1/3, TPR@5% 0.06) → 탐지 주장은 새 모델 크롤 이후 글로 한정. H2 성립. arXiv는 학습 풀 밖이라 00 유지. ChatGPT 이후 사람 초록에서만 Δ 상승(+0.074) |
 | 05 | [AI 다듬기 보정: 사람 초록의 Δ 상승을 AI가 고친 글의 비중으로 환산](docs/experiments/05-polish-calibration.md) | `exp/05-polish-calibration` | 핵심 기여 (02 후속) | 11/22 | ✅ H1~H4 성립: 다듬기는 AI 이후 쌍 Δ만 올림(위약 기울기 −0.01). 반응은 편집 비율의 제곱꼴이라 가벼운 교정은 거의 안 보임. 2024년 사람 초록은 글의 약 1/3(실제 LLM 기준 0.40~0.53), 초록으로는 약 절반이 다듬어진 것과 같음. 표지어 기준 0.21 ≈ Liang et al. 17.5%. 다듬은 글 탐지는 Δ가 likelihood보다 좋음(0.875 vs 0.792) |
 | 01 | [연도 곡선: 12개 vintage의 AI/사람 gap, 변화점 사후 확인](docs/experiments/01-year-curve.md) | `exp/01-year-curve` | 핵심 그림 | 11/29 | ✅ H1~H4 성립: AI 글 선호는 10년간 평평(−0.003/년, 모델 잡음 0.009)하다가 2023 vintage부터 이탈(r 2023 +0.20, 2024 +0.27, z 17·22). 같은 글을 다듬기만 해도 같이 이탈, GPT-Neo 글은 안 오름, 사람 초록의 AI 쪽 이동도 2023부터. vintage 데이터는 누적 아님(그해 크롤 + 이월, f 0.26). 탐지 쌍은 2024−2022가 최선(AUROC 0.950) |
-| 04 | 기존 탐지기(Binoculars, Fast-DetectGPT)와 상보성: 놓친 글을 Δ가 잡는가 | `exp/04-complement` | 중요 | 12/11 | ⚪ 예정 |
+| 04 | [기존 탐지기와 비교: 공개 벤치마크(RAID 초록, APT-Eval)에서 Δ·s_λ vs Binoculars·Fast-DetectGPT, 상보성](docs/experiments/04-complement.md) | `exp/04-complement` | 중요 | 12/11 | ✅ H2·H3·H5 성립, H1·H4 불성립(1~3B 탐지기 기준). AI가 다듬은 글(APT 강)에서 s_0.9 0.847 > likelihood 0.815 > Binoculars(1B) 0.790 > Fast-DetectGPT 0.626. AI가 처음부터 쓴 글은 Binoculars가 우세(0.91~1.00). 이득은 ChatGPT 경계에서 옴(AI 이전 쌍은 이득 없음). Δ는 paraphrase에 가장 약함. Falcon-7B 비교(Runpod)는 후속 결정 대기 |
 | 03 | [놀람 기반 지식 토큰 필터 (k 스윕) + 제거 토큰 유형 분석](docs/experiments/03-k-sweep.md) | `exp/03-k-sweep` | 후순위 | 12/11 | ✅ H1·H2·H4 성립, H3 (b) 불성립. 토큰 10%를 빼도 DiD 95% 유지, 위약 그대로. 단 필터는 지식 필터가 아님: 사람 글에서는 LLM 분야 용어를, AI 글에서는 채팅 문체 단어(leverage, comprehensive)를 뺌 → "지식 통제"로 쓰지 않음. 탐지에는 도움(사람 쪽 오탐 꼬리를 깎음): k = 0.05에서 Δ2024−2022 AUROC 0.959, TPR@5% 0.65 → 0.73 |
 
 상태 표시: 🟢 실행 가능 · 🔵 진행 중 · ✅ 완료(main에 merge) · ⏸ 대기 · ❌ 중단(브랜치에 사유 기록) · ⚪ 예정
@@ -100,11 +100,16 @@ scripts/generate_continuation.py  제목 없는 문서의 AI 기준점: 앞 30�
 scripts/mia_contrast.py      시기별 C−H gap과 시기 간 대비(학습 포함, AI 보조), 시기 층화 bootstrap (02)
 scripts/plot_period_means.py 시기별 사람·AI 평균 Δ 그림 (02)
 scripts/polish_texts.py      로컬 채팅 모델로 사람 초록을 세 강도(교정·다듬기·다시 쓰기)로 다듬기 (05)
-scripts/convert_apt_eval.py  APT-Eval(실제 LLM 5종이 다듬은 글)의 논문 초록 → 채점 입력 (05-b)
+scripts/convert_apt_eval.py  APT-Eval(실제 LLM 5종이 다듬은 글) → 채점 입력: 논문 초록(05-b), 6개 도메인 전체(04)
 scripts/polish_calibration.py 편집 비율당 Δ 상승, 실제 LLM 전이, AI가 고친 글의 비중 β, 표지어·탐지·분포 모양 (05)
 scripts/plot_polish_calibration.py 편집 비율별 Δ 상승, 실제 LLM 전이, β 그림 (05)
 scripts/year_curve.py        12개 vintage 곡선, 2013~2022 추세 이탈(r, z), 변화점, vintage 데이터 점검 f, 탐지 (01)
 scripts/plot_year_curve.py   연도 곡선 그림 (01)
+scripts/fetch_raid.py        RAID 벤치마크를 받으면서 한 도메인만 남기기 (04)
+scripts/convert_raid.py      RAID 초록 표본 → 채점 입력 (04)
+scripts/baseline_scores.py   기존 zero-shot 탐지기: Binoculars, Fast-DetectGPT (6GB용 작은 모델) (04)
+scripts/det04.py             공개 벤치마크 탐지 비교: 조건별 AUROC·TPR, 상보성(구제율·결합), 시간 경계 대조 (04)
+scripts/plot_det04.py        탐지기별·조건별 AUROC 그림 (04)
 scripts/web_doc_curves.py    사람 글만의 vintage 곡선: 크롤 데이터가 누적인지 탐색 (01)
 scripts/k_sweep.py           놀람 필터 k 스윕: DiD·위약·D′·polish_24·다듬기 기울기·탐지, 무작위 제거 대조, 제거 토큰 유형 (03)
 scripts/plot_k_sweep.py      k 스윕 그림 (03)

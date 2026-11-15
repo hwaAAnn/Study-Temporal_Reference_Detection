@@ -79,3 +79,13 @@ def test_cluster_bootstrap_ci_contains_point_estimate():
     clusters = np.repeat(np.arange(100), 2)
     lo, hi = cluster_bootstrap_ci(clusters, lambda idx: float(x[idx].mean()), n_boot=300)
     assert lo < x.mean() < hi and lo > 0.5
+
+
+from trd.scoring import with_bos
+
+
+def test_with_bos_prepends_once_and_counts_bos_in_max_tokens():
+    assert with_bos([5, 6, 7], 0, 3) == [0, 5, 6]
+    assert with_bos([0, 5, 6], 0, 200) == [0, 5, 6]  # tokenizer already added it
+    assert with_bos([5, 6], None, 200) == [5, 6]     # no BOS requested
+    assert with_bos([], 0, 200) == [0]

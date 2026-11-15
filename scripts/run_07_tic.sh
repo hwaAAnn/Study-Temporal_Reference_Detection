@@ -7,7 +7,7 @@
 #   bash scripts/run_07_tic.sh /c/Users/OFFICE/Study-Temporal_Reference_Detection
 set -euo pipefail
 MAIN=${1:?path to the main checkout (data/, outputs/, .venv/)}
-HERE=$(cd "$(dirname "$0")/.." && pwd)
+HERE=$(cd "$(dirname "$0")/.." && pwd -W)   # Windows form: it is also embedded in python -c strings
 PY="$MAIN/.venv/Scripts/python.exe -I"
 export PYTHONIOENCODING=utf-8 HF_HUB_OFFLINE=1 HF_HUB_DISABLE_SYMLINKS_WARNING=1 TQDM_DISABLE=1
 IN="$MAIN/data/01_all.jsonl"

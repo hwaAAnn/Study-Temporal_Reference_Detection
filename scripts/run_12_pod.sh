@@ -37,7 +37,7 @@ for t in $TAGS; do
   if [ -s "outputs/g12_$t.jsonl" ]; then echo "have outputs/g12_$t.jsonl"; continue; fi
   python scripts/generate_recent.py --tag "$t" --titles data/12_titles.jsonl --out "outputs/g12_$t.jsonl" \
     || { echo "GENERATION FAILED: $t"; rm -f "outputs/g12_$t.jsonl"; }
-  rm -rf /root/hf/hub/models--*      # one generator's weights at a time on the container disk
+  rm -rf "$HF_HOME/hub" "$HF_HOME/xet"   # one generator at a time; hub 2.x shares blobs across repos (hub/blobs)
   df -h / | tail -1
 done
 ls outputs/g12_*.jsonl >/dev/null 2>&1 || { echo "no generations"; exit 1; }

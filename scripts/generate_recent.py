@@ -67,7 +67,14 @@ def main() -> None:
     if args.limit:
         rows = rows[:args.limit]
     t0 = time.time()
-    llm = LLM(model=repo, revision=rev, tokenizer_revision=rev, seed=args.seed, trust_remote_code=False,
+    # download the pinned revision completely first (vLLM's own download left a shard missing once, 11/16),
+    # without gpt-oss's original/ and metal/ copies
+    from huggingface_hub import snapshot_download
+    local = snapshot_download(repo, revision=rev, allow_patterns=["*.json", "*.safetensors", "*.jinja", "*.txt",
+                                                                  "*.model", "*.tiktoken"],
+                              ignore_patterns=["original/*", "metal/*", "coreml/*"])
+    print(f"{args.tag}: downloaded {repo}@{rev[:12]} in {time.time() - t0:.0f} s", flush=True)
+    llm = LLM(model=local, seed=args.seed, trust_remote_code=False,
               max_model_len=args.max_tokens + 512, gpu_memory_utilization=args.gpu_mem)
     sp = llm.get_default_sampling_params()
     sp.max_tokens = args.max_tokens

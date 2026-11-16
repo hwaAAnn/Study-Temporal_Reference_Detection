@@ -75,7 +75,7 @@ def main() -> None:
     print(f"{args.tag}: loaded in {time.time() - t0:.0f} s; sampling {sp}", flush=True)
     msgs = [[{"role": "user", "content": PROMPT.format(title=r["title"])}] for r in rows]
     t1 = time.time()
-    outs = llm.chat(msgs, sp)
+    outs = llm.chat(msgs, sp, use_tqdm=False)   # vLLM 0.33 divides by tqdm's elapsed time, 0 under TQDM_DISABLE
     print(f"{args.tag}: {len(outs)} generations in {time.time() - t1:.0f} s", flush=True)
     n_final = 0
     with open(args.out, "w", encoding="utf-8") as f:

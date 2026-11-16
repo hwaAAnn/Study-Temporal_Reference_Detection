@@ -127,5 +127,11 @@ scripts/slots_check.py       08 파이프라인 점검: 대각선 ll vs 01, 직�
 scripts/slots_grid.py        칸별 AUROC, H1~H4 대비, 방향 판정 (08)
 scripts/tic_r1_gate.py       07 출력에 대한 탐지 판정 R1: 단일 모델 AUROC의 2024-07 도약 (08 배경)
 scripts/plot_slots.py        기준×채점 AUROC 격자 그림 (08)
+scripts/score_slots_family.py 08의 기준×채점 격자를 다른 계열에: TiC-LM, Hugging Face 모델 (10, 11, 12)
+scripts/slots_check_family.py 위 스크립트의 점검: 직접 fp32 계산 vs 묶음 계산, 07 대각선 (10, 11, 12)
+scripts/build_12_titles.py   12 제목: 08의 H19·B 사람 초록 800편
+scripts/generate_recent.py   12 생성 (vLLM): 2025~2026년 생성기, 01의 프롬프트, 최종 답만
+scripts/build_12_input.py    12 채점 입력: 01의 거르기, 버린 이유 기록
+scripts/run_12_pod.sh        12 pod 실행: 생성 4개 → 입력 → DatedGPT 25칸 → Falcon 4칸 (각 12편 점검)
 tests/                    모델 없이 도는 단위 테스트
 ```

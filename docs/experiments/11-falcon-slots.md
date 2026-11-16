@@ -156,6 +156,20 @@ Falcon으로는 글을 하나도 채점하지 않았습니다. 10의 결과도 �
   - 7B 모델이라도 같은 약점이 남는다고 봅니다. 그래서 원래 Binoculars는 0.74~0.86으로, s_0.9(0.847) 근처이거나 아래일 것입니다.
 - **생성기별 (탐색):** RAID에서 원래 설정의 이득(H2 대비)은 ChatGPT와 GPT-4 글에서 가장 큽니다. instruct 모델이 그 모델들의 글로 미세조정됐기 때문입니다.
 
+## 실행
+
+```bash
+# 이 워크트리에서. data/는 git에 없으므로 입력 파일을 만들어 코드와 함께 묶습니다
+python scripts/build_11_input.py --a <main>/data/01_all.jsonl --b <main>/data/04_new.jsonl --out data/11_input.jsonl
+bash scripts/pack_11.sh <scratch>/trd11.tar.gz      # 커밋된 코드(LF) + data/11_input.jsonl
+# pod (RTX 4090, volume disk 없음, container disk 80GB) 에 올려 풀고:
+nohup bash scripts/run_11_pod.sh > outputs/run_11.log 2>&1 &
+# 끝나면 outputs/s11_check.json, s11_grid.jsonl, run_11.log 를 받아 main 체크아웃의 outputs/ 에 두고 pod 를 terminate
+```
+
+- `run_11_pod.sh` 순서: 설치 → 두 모델 받기(safetensors·설정·토크나이저만) → 12편 점검(실패하면 멈춤) → 2×2 격자.
+- 시간 제한 장치는 3시간입니다(`MAX_HOURS`).
+
 ## 한계 (미리)
 
 - **base와 instruct의 차이는 학습 데이터의 연도만이 아닙니다.** instruct 조정은 말투와 형식을 바꾸고, 분포도 뾰족하게 만듭니다. 그래서 이 실험은 깨끗한 연도 대비가 아니라, "표준 설정이 우리 결과와 맞는 모양인가"를 보는 보조 근거입니다. 인과 근거는 연도만 다른 08~10입니다.

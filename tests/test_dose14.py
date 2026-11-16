@@ -85,3 +85,19 @@ def test_planted_step():
     res = run(step)
     assert res["verdict"]["D1"] == {"F": "step", "Bi": "step"}
     assert res["verdict"]["dose_response"] == "step"
+
+
+def test_ext_pool_matches_part_a():
+    """dose14_ext's Pool on a 1:1 pair set reproduces part A's point d and D1 status."""
+    import dose14_ext as dx
+
+    fams = {f: fake_family(f, proportional) for f in dz.FAMILIES}
+    a = dz.evaluate(fams, n_boot=200)
+    rows = fams["DG"]
+    h = sorted(i for i, r in rows.items() if r["group"] == "H19")
+    c = sorted(i for i, r in rows.items() if r["group"] == "C19")
+    pool = dx.Pool("t", h, c, {i: rows[i]["pair_id"] for i in h + c})
+    t = dx.pool_tests(pool, {"DG": rows}, a["dose"], pool.draws(np.random.default_rng(0), 200))
+    for det in dz.DETS:
+        assert abs(t[det]["d"]["2022_2024"] - a["sets"]["H19/C19"]["families"]["DG"][det]["d"]["2022_2024"]) < 1e-9
+        assert t[det]["D1"]["status"] == "proportional"

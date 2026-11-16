@@ -46,6 +46,7 @@ DiD = [Δ_{2024,2021}(AI) − Δ_{2024,2021}(사람)] − [Δ_{2021,2018}(AI) �
 | 07 | [TiC-LM Oracle: 품질 분류기 없이 처음부터 학습한 계열(2013-05~2024-07, 7개)에서의 재현](docs/experiments/07-tic-oracle.md) | `exp/07-tic-oracle` | 핵심 그림 (분류기 반론) | 11/29 | ✅ H1~H4 성립. AI 선호가 2013-05~2023-01 평평(−0.003/년, 잡음 0.009)하다가 2024-07에서 이탈(r +0.191, z 16). 다듬기도 이탈(z 21), GPT-Neo 글은 안 오름, 사람 초록 이동도 작게 이탈(z 3.2). 분류기 없는 데이터·다른 구조·토크나이저에서 01 재현 → FineWeb-Edu 분류기 반론에 답함. 7개 시점 모두 fp16 점검 통과 |
 | 08 | [탐지기의 두 자리: 채점 모델과 기준 모델의 학습 연도(DatedGPT 5×5, Fast-DetectGPT·Binoculars)](docs/experiments/08-detector-slots.md) | `exp/08-detector-slots` | 핵심 (위치 잡기 판정) | 11/22 | ✅ H1~H4 성립(두 탐지기·세 묶음) → 판정 "채택". 채점 자리에는 ChatGPT 이후 모델이 돕고 기준 자리에서는 해침: 기준 2022 + 채점 2024는 F 0.9998, 단일 모델 2024는 0.921로 단일 모델 2022(0.968)보다 나쁨. 2024 모델에서는 likelihood(0.996)가 F·Bi를 앞서 순위가 뒤집힘(사후). 효과는 Qwen 글에서 나옴(Llama 글은 천장). 배경: 07 출력의 R1 판정 성립(z_J +26.6) |
 | 09 | [탐지기의 두 자리를 공개 벤치마크에서: RAID 초록·APT-Eval에 08의 기준×채점 칸(DatedGPT 2018·2021·2022·2024)](docs/experiments/09-slots-benchmarks.md) | `exp/09-slots-benchmarks` | 핵심 (탐지 주장) | 12/11 | ✅ 일반화 성립: H1~H4 성립(두 탐지기·두 주 묶음), H5 불성립. 기준 2022 + 채점 2024는 RAID 채팅 F 0.981·Bi 0.987(단일 모델 2024는 0.885), APT 강 0.751·0.768(단일 모델 2024는 0.584). "최신 단일 모델이 더 나쁘다"를 미리 세운 가설로 재현(H4). 최신 모델의 손해와 두 자리 효과는 채팅 문체의 글에만 있음(단일 모델 2022 → 2024: 채팅 이전 생성기 −0.004, 채팅 생성기 −0.073). 그러나 APT 강에서 Binoculars-1B(0.790)·s_0.9(0.847)·likelihood(0.815)보다 낮음 → 탐지 방법은 s_λ, 두 자리 결과는 분석으로. 원인: 다듬은 글은 log p가 오르는 만큼 엔트로피도 내려가 F·Bi의 정규화가 신호를 지움(추가 예측 E1~E3로 확인) |
+| 10 | [TiC-LM에서 탐지기의 두 자리: 08의 기준×채점 격자를 다른 계열(TiC-LM Oracle 1B, 다섯 시점)에서 재현](docs/experiments/10-tic-slots.md) | `exp/10-tic-slots` | 핵심 (계열 재현) | 11/22 | ✅ 재현 판정 "재현". H1~H3 성립(두 탐지기, A 부분): 기준 202301 + 채점 202407 0.996 vs 단일 0.961/0.953(H19/C19 F), 효과는 DatedGPT의 약 절반. H4는 P1에서만 분명. S1(TiC s_0.9의 likelihood 대비 이득, P2) 불성립 +0.020 [−0.003, +0.043], S2 성립. TiC likelihood도 다듬은 글에 약함(0.701, DatedGPT 0.815) |
 
 상태 표시: 🟢 실행 가능 · 🔵 진행 중 · ✅ 완료(main에 merge) · ⏸ 대기 · ❌ 중단(브랜치에 사유 기록) · ⚪ 예정
 
@@ -130,5 +131,8 @@ scripts/plot_slots.py        기준×채점 AUROC 격자 그림 (08)
 scripts/run_09_slots.sh      04 시험 글에 기준×채점 칸 채점: 주 묶음 네 vintage, 나머지 두 vintage (09)
 scripts/det09.py             공개 벤치마크에서 칸별 AUROC, H1~H5 대비, 04 탐지기와 비교 (09)
 scripts/slots_decomp.py      칸별 ll·X(엔트로피) 분해, F·Bi − likelihood와 두 자리 대비를 04의 모든 묶음에서 bootstrap, 추가 예측 E1~E3 (09)
+scripts/score_slots_family.py 08의 기준×채점 격자를 다른 계열에: TiC-LM, Hugging Face 모델 (10, 11)
+scripts/slots_check_family.py 위 스크립트의 점검: 직접 fp32 계산 vs 묶음 계산, 07 대각선 (10, 11)
+scripts/run_10_tic.sh        10 채점 체인: 체크포인트 받기·SHA 대조 → 점검 → A(25칸) → B(9칸)
 tests/                    모델 없이 도는 단위 테스트
 ```

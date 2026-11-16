@@ -45,6 +45,7 @@ DiD = [Δ_{2024,2021}(AI) − Δ_{2024,2021}(사람)] − [Δ_{2021,2018}(AI) �
 | 03 | [놀람 기반 지식 토큰 필터 (k 스윕) + 제거 토큰 유형 분석](docs/experiments/03-k-sweep.md) | `exp/03-k-sweep` | 후순위 | 12/11 | ✅ H1·H2·H4 성립, H3 (b) 불성립. 토큰 10%를 빼도 DiD 95% 유지, 위약 그대로. 단 필터는 지식 필터가 아님: 사람 글에서는 LLM 분야 용어를, AI 글에서는 채팅 문체 단어(leverage, comprehensive)를 뺌 → "지식 통제"로 쓰지 않음. 탐지에는 도움(사람 쪽 오탐 꼬리를 깎음): k = 0.05에서 Δ2024−2022 AUROC 0.959, TPR@5% 0.65 → 0.73 |
 | 07 | [TiC-LM Oracle: 품질 분류기 없이 처음부터 학습한 계열(2013-05~2024-07, 7개)에서의 재현](docs/experiments/07-tic-oracle.md) | `exp/07-tic-oracle` | 핵심 그림 (분류기 반론) | 11/29 | ✅ H1~H4 성립. AI 선호가 2013-05~2023-01 평평(−0.003/년, 잡음 0.009)하다가 2024-07에서 이탈(r +0.191, z 16). 다듬기도 이탈(z 21), GPT-Neo 글은 안 오름, 사람 초록 이동도 작게 이탈(z 3.2). 분류기 없는 데이터·다른 구조·토크나이저에서 01 재현 → FineWeb-Edu 분류기 반론에 답함. 7개 시점 모두 fp16 점검 통과 |
 | 08 | [탐지기의 두 자리: 채점 모델과 기준 모델의 학습 연도(DatedGPT 5×5, Fast-DetectGPT·Binoculars)](docs/experiments/08-detector-slots.md) | `exp/08-detector-slots` | 핵심 (위치 잡기 판정) | 11/22 | ✅ H1~H4 성립(두 탐지기·세 묶음) → 판정 "채택". 채점 자리에는 ChatGPT 이후 모델이 돕고 기준 자리에서는 해침: 기준 2022 + 채점 2024는 F 0.9998, 단일 모델 2024는 0.921로 단일 모델 2022(0.968)보다 나쁨. 2024 모델에서는 likelihood(0.996)가 F·Bi를 앞서 순위가 뒤집힘(사후). 효과는 Qwen 글에서 나옴(Llama 글은 천장). 배경: 07 출력의 R1 판정 성립(z_J +26.6) |
+| 09 | [탐지기의 두 자리를 공개 벤치마크에서: RAID 초록·APT-Eval에 08의 기준×채점 칸(DatedGPT 2018·2021·2022·2024)](docs/experiments/09-slots-benchmarks.md) | `exp/09-slots-benchmarks` | 핵심 (탐지 주장) | 12/11 | 🔵 명세·예측 커밋, 채점 전. 주 칸 2022_2024를 단일 모델 칸, 04의 Binoculars-1B·s_0.9와 비교. 판정: H1 채점 자리, H2 기준 자리, H3 ChatGPT 경계, H4 최신 단일 모델, H5 기존 탐지기 대비(APT 강) |
 
 상태 표시: 🟢 실행 가능 · 🔵 진행 중 · ✅ 완료(main에 merge) · ⏸ 대기 · ❌ 중단(브랜치에 사유 기록) · ⚪ 예정
 
@@ -122,9 +123,11 @@ scripts/run_07_tic.sh        TiC-LM 1B 일곱 시점 받기·점검·채점 체�
 scripts/tic_curve.py         TiC-LM 곡선, ChatGPT 이전 여섯 시점 추세 이탈(r, z), 단계 크기(J, z_J), 탐지 (07)
 third_party/open_lm/         open_lm 모델 코드(커밋 9bb92ef, MIT), TiC-LM용 (07)
 scripts/score_slots.py       DatedGPT 다섯 연도의 기준×채점 25칸, Fast-DetectGPT·Binoculars (08)
-scripts/slots_check.py       08 파이프라인 점검: 대각선 ll vs 01, 직접 계산 vs 묶음 계산 (08)
+scripts/slots_check.py       08 파이프라인 점검: 대각선 ll vs 01(09는 --yc-prefix yc04_로 04), 직접 계산 vs 묶음 계산 (08, 09)
 scripts/slots_grid.py        칸별 AUROC, H1~H4 대비, 방향 판정 (08)
 scripts/tic_r1_gate.py       07 출력에 대한 탐지 판정 R1: 단일 모델 AUROC의 2024-07 도약 (08 배경)
 scripts/plot_slots.py        기준×채점 AUROC 격자 그림 (08)
+scripts/run_09_slots.sh      04 시험 글에 기준×채점 칸 채점: 주 묶음 네 vintage, 나머지 두 vintage (09)
+scripts/det09.py             공개 벤치마크에서 칸별 AUROC, H1~H5 대비, 04 탐지기와 비교 (09)
 tests/                    모델 없이 도는 단위 테스트
 ```

@@ -31,6 +31,7 @@ def main() -> None:
     ap.add_argument("--input", required=True)
     ap.add_argument("--check", required=True, help="score_slots.py output for a few texts")
     ap.add_argument("--yc-dir", required=True, help="directory with the 01 files yc_<vintage>.jsonl")
+    ap.add_argument("--yc-prefix", default="yc_", help="score file prefix: yc_ (01) or yc04_ (04 texts, used by 09)")
     ap.add_argument("--cross", nargs="+", default=["2022_2024", "2024_2022"])
     ap.add_argument("--tol-ll", type=float, default=0.01)
     ap.add_argument("--tol-det", type=float, default=0.02)
@@ -43,13 +44,13 @@ def main() -> None:
     worst = 0.0
     for v in vint:
         yc = {}
-        for line in (Path(args.yc_dir) / f"yc_{v}.jsonl").read_text(encoding="utf-8").splitlines():
+        for line in (Path(args.yc_dir) / f"{args.yc_prefix}{v}.jsonl").read_text(encoding="utf-8").splitlines():
             r = json.loads(line)
             (lp,) = r["lp"].values()
             yc[r["id"]] = float(np.mean(lp))
         d = [abs(r["cells"][f"{v}_{v}"]["ll"] - yc[r["id"]]) for r in rows]
         worst = max(worst, max(d))
-        print(f"(1) ll {v}_{v} vs yc_{v}: max |diff| {max(d):.5f} over {len(d)} texts")
+        print(f"(1) ll {v}_{v} vs {args.yc_prefix}{v}: max |diff| {max(d):.5f} over {len(d)} texts")
     ok &= worst <= args.tol_ll
 
     import torch

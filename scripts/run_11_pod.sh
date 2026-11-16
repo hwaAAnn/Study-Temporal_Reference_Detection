@@ -6,6 +6,9 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p outputs
 export HF_HOME=/root/hf TQDM_DISABLE=1 PYTHONIOENCODING=utf-8 HF_HUB_DISABLE_PROGRESS_BARS=1
+# the Ubuntu 24.04 runpod/pytorch image marks its Python as externally managed (PEP 668); the pod is disposable
+export PIP_BREAK_SYSTEM_PACKAGES=1
+# Do not kill the watchdog's sleep to cancel it: the subshell then runs the stop at once. Kill the subshell.
 
 # Safety net (as 06): stop the pod after MAX_HOURS even if nobody is watching. Stopping ends GPU billing, and
 # the pod has no volume disk. (Pod env vars live in PID 1's environment.)

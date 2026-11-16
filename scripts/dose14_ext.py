@@ -141,6 +141,11 @@ def part_b(out: Path, G: dict, n_boot: int, seed: int) -> dict:
 
 
 def part_c(out: Path, input_path: Path, G: dict, n_boot: int, seed: int) -> dict:
+    pools, fams = build_c(out, input_path)
+    return run_pools(pools, fams, G, n_boot, seed, main=("P1 RAID chat, sampling", "P2 APT strong"))
+
+
+def build_c(out: Path, input_path: Path) -> tuple[dict[str, "Pool"], dict]:
     from det04 import read_meta  # noqa: E402
     meta = read_meta(str(input_path))
     fams = {"DG": read_jsonl(out / "s14_C.jsonl")}
@@ -159,7 +164,7 @@ def part_c(out: Path, input_path: Path, G: dict, n_boot: int, seed: int) -> dict
         pools[f"RAID {m}"] = Pool(m, by["RAID.H"], by[f"RAID.{m}.sampling"], cluster)
     for p in sorted({meta[i]["polisher"] for i in strong}):
         pools[f"APT strong {p}"] = Pool(p, by["APT.H"], [i for i in strong if meta[i]["polisher"] == p], cluster)
-    return run_pools(pools, fams, G, n_boot, seed, main=("P1 RAID chat, sampling", "P2 APT strong"))
+    return pools, fams
 
 
 def run_pools(pools: dict[str, Pool], fams: dict, G: dict, n_boot: int, seed: int, main: tuple) -> dict:

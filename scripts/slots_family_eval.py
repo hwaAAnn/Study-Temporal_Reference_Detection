@@ -51,6 +51,10 @@ EXP = {
                     (1, "{d}:202301_202301")], "lower>0", "AB"),
             "H4": ([(1, "{d}:202407_202407"), (-1, "{d}:202301_202301")], "upper<0", "AB"),
             "H5": ([(1, "{d}:202301_202407"), (-1, "{d}:201305_202407")], "upper>0", "A"),
+            # s_lambda on TiC (pre-registered 11/16 18:40, a4d0a30); the same for F and Bi (no detector term)
+            "S1": ([(1, "sl09:202407-202301"), (-1, "ll:202407")], "lower>0", "P2"),
+            "S2": ([(1, "sl09:202407-202301"), (-1, "ll:202407"), (-1, "sl09:202101-201901"), (1, "ll:202101")],
+                   "lower>0", "A"),
         },
         "ceiling": {"H2"},
         "ratio": {"H2": ("{d}:202407_202407", "{d}:202301_202407")},   # E(new single) / E(key), part A only
@@ -76,7 +80,17 @@ EXTRA = {
     "vs_ll24": [(1, "{d}:KEY"), (-1, "ll24")],
     "vs_s09": [(1, "{d}:KEY"), (-1, "s09")],
     "vs_bino1b": [(1, "{d}:KEY"), (-1, "bino1b")],
+    # s_lambda on TiC (10): keys exist only when the TiC diagonals do
+    "sl_gain": [(1, "sl09:202407-202301"), (-1, "ll:202407")],
+    "sl075_gain": [(1, "sl075:202407-202301"), (-1, "ll:202407")],
+    "sl_gain_old2101": [(1, "sl09:202407-202101"), (-1, "ll:202407")],
+    "sl075_gain_old2101": [(1, "sl075:202407-202101"), (-1, "ll:202407")],
+    "sl_vs_dg_s09": [(1, "sl09:202407-202301"), (-1, "s09")],
+    "sl_vs_bino1b": [(1, "sl09:202407-202301"), (-1, "bino1b")],
+    "sl_vs_falcon": [(1, "sl09:202407-202301"), (-1, "fa:Bi:base_inst")],
+    "sl_vs_key": [(1, "sl09:202407-202301"), (-1, "{d}:KEY")],
 }
+SL_PAIRS = [("202407", "202301"), ("202407", "202101"), ("202101", "201901")]
 
 
 # ---------------- loading ----------------
@@ -250,6 +264,8 @@ def judge10(res: dict) -> dict:
                         else "replicates" if n == 2 else "partial" if n == 1 else "fails")
     v["part_B_generalises"] = all(st(res, p, d, h) == "holds" for p in (P1, P2) for d in DETS for h in ("H1", "H2"))
     v["H4_all_four"] = all(st(res, s, d, "H4") == "holds" for s in ("H19/C19", "B/C", P1, P2) for d in DETS)
+    v["S1_P2"] = st(res, P2, "F", "S1")
+    v["S2_part_A"] = {s: st(res, s, "F", "S2") for s in ("H19/C19", "B/C")}
     return v
 
 
@@ -292,7 +308,7 @@ def print_report(res: dict) -> None:
             print(f"{cell:<16}" + "".join(f"{x:>10.4f}" for x in a) + "    " + " ".join(f"{x:.2f}" for x in t))
         ll = {k: v for k, v in s["auroc"].items() if k.startswith("ll:")}
         print("ll (single model): " + ", ".join(f"{k[3:]} {v:.4f}" for k, v in sorted(ll.items())))
-        ref = {k: v for k, v in s["auroc"].items() if k.startswith("dg:") or k in BASE}
+        ref = {k: v for k, v in s["auroc"].items() if k.startswith(("dg:", "sl09:", "sl075:", "fa:")) or k in BASE}
         if ref:
             print("reference: " + ", ".join(f"{k} {v:.4f}" for k, v in sorted(ref.items())))
         for d in DETS:
@@ -319,12 +335,23 @@ def main() -> None:
     ap.add_argument("--dated", nargs="*", default=[], help="04 DatedGPT score files yc04_2022, yc04_2024")
     ap.add_argument("--binoculars", default=None)
     ap.add_argument("--fdgpt", default=None)
+    ap.add_argument("--fa-grid", nargs="*", default=[], help="11's Falcon grid, its original cell base_inst described")
     ap.add_argument("--n-boot", type=int, default=2000)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--json", default=None)
     args = ap.parse_args()
 
     sc, HEAD = grid_scores(args.grid)
+    for s in sc.values():   # s_lambda from the diagonals (TiC in 10), lambda fixed at 04's 0.9 and 0.75
+        for new, old in SL_PAIRS:
+            if f"ll:{new}" in s and f"ll:{old}" in s:
+                s[f"sl09:{new}-{old}"] = s[f"ll:{new}"] - 0.9 * s[f"ll:{old}"]
+                s[f"sl075:{new}-{old}"] = s[f"ll:{new}"] - 0.75 * s[f"ll:{old}"]
+    if args.fa_grid:
+        fa, _ = grid_scores(args.fa_grid, prefix="fa:")
+        for i in sc:
+            if i in fa:
+                sc[i].update({k: v for k, v in fa[i].items() if k.endswith(":base_inst")})
     if args.dg_grid:
         dg, _ = grid_scores(args.dg_grid, prefix="dg:")
         for i in sc:

@@ -146,3 +146,10 @@ scripts/build_12_input.py    12 채점 입력: 01의 거르기, 버린 이유 �
 scripts/run_12_pod.sh        12 pod 실행: 생성 4개 → 입력 → DatedGPT 25칸 → Falcon 4칸 (각 12편 점검)
 tests/                    모델 없이 도는 단위 테스트
 ```
+
+## 라이선스
+
+- 코드(`src/`, `scripts/`, `tests/`)는 MIT입니다. [LICENSE](LICENSE)를 보세요.
+- 글과 그림(`README.md`, `docs/`)은 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)입니다. 가져다 쓸 때는 출처(이 레포)를 밝혀 주세요.
+- `third_party/open_lm/`은 원래 라이선스를 따릅니다([third_party/open_lm/LICENSE](third_party/open_lm/LICENSE)).
+- 데이터와 모델 가중치는 이 레포에 없습니다. RAID, APT-Eval, DatedGPT, TiC-LM, Falcon 등은 각자의 원래 라이선스를 따릅니다. TiC-LM 가중치는 연구용 라이선스입니다.

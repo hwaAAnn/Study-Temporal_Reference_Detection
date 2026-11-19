@@ -51,6 +51,7 @@ DiD = [Δ_{2024,2021}(AI) − Δ_{2024,2021}(사람)] − [Δ_{2021,2018}(AI) �
 | 12 | [탐지기 모델보다 새로운 생성기: 2025~2026년 공개 모델(gpt-oss-120b, GLM-4.7-Flash, Qwen3-30B-A3B Instruct/Thinking)이 쓴 초록에서 08의 두 자리](docs/experiments/12-recent-generators.md) | `exp/12-recent-generators` | 중요 (생성기 시기) | 11/22 | ✅ 판정 "이어진다". H2 성립(두 탐지기, H19·B): 기준 2022 + 채점 2024가 단일 모델보다 +0.35(H19, 0.537 → 0.891). 새 생성기는 훨씬 어려움(단일 2022 0.620, 08에선 0.968), gpt-oss-120b는 최고 0.764. H4는 H19만, H5(추론형이 더 어려움)·H6(DatedGPT 쌍 > Falcon 원래) 성립. s_0.9가 H19 최고 0.922. A100 약 48분, 약 $1.75 |
 | 13 | [문턱값 이전: H19 사람 초록에서 한 번 정한 5% 문턱을 다른 출처·도메인·시기의 글에 그대로](docs/experiments/13-threshold-transfer.md) | `exp/13-threshold-transfer` | 중요 (실사용 조건) | 11/22 | ✅ T1~T3 성립. H19에서 한 번 정한 5% 문턱을 RAID에 그대로 써도 섞은 칸(기준 2022 + 채점 2024)이 단일 모델보다 나음(J 0.869 vs 0.570/0.792, RAID 사람 오탐 2.5%). 그러나 두 시점을 대비하는 점수는 ChatGPT 이후 사람 초록을 많이 AI로 판정(섞은 칸 15~27%, s_0.9 47%; 단일 모델·Falcon은 1~7%). 같은 시기 사람 글로 문턱을 다시 정하면 분리는 거의 완벽 → 시간 대비 탐지기는 같은 시기 보정이 조건. 추가 분석: 그 오탐은 LLM 주제 글(판정 42% vs 그 밖 20%)과 AI 표지어가 많은 글(판정된 글 1.7배)에서 비슷한 크기로 옴(표준화 계수 각 +0.28) → 내용(지식) 혼동과 실제 다듬기가 섞임. 같은 제목 짝 설계의 근거 |
 | 14 | [용량-반응: 01·07에서 잰 채팅 흡수량 G가 기준 자리의 손해 크기를 예측하나 (DatedGPT 2023 중간 용량, 세 계열의 척도)](docs/experiments/14-dose-response.md) | `exp/14-dose-response` | 중요 (측정과 탐지를 한 양으로) | 11/22 | ✅ A 판정 "정량": 기준 2023은 기준 2022 이득의 33~49%를 남김(흡수량 예측 25%, 2배 범위 안, 선형보다 덜함). 흡수량 차이 하나가 격자 25칸 d 분산의 80~90% 설명(DatedGPT·TiC). 틀림: 가장 오래된 기준(2013)은 흡수량과 따로 손해 → 권고는 "가장 최근의 ChatGPT 이전 모델". B(12의 2025~2026년 생성기) "이어진다(단조)"지만 f 0.72~0.90(예측 0.3~0.6 틀림). C(09의 RAID 채팅·APT 강을 2023 포함 다섯 vintage로 로컬 재채점) "상용·대형 생성기로 이어진다": RAID F f 0.32로 A와 같음(ChatGPT·GPT-4·Llama-2-70B-chat 포함), Bi 0.54, APT 0.55~0.66. 틀림: B를 보고 찾은 생성기별 용량은 C에서 표본 밖 corr 0.18(F)·−0.05(Bi)로 실패(묶음 평균 수준만 맞음), 계열 척도(TiC·Falcon)는 글 묶음마다 흔들림. AUROC로는 천장이라 안 보임 → d로 보고 |
+| 15 | [RAID 여덟 도메인의 연도 곡선: 2023 vintage의 이탈이 초록 밖에서도, 같은 모델의 기본판 대 채팅판(Mistral·MPT)에서도 나오나](docs/experiments/15-raid-domains.md) | `exp/15-raid-domains` | 핵심 (학습 시기가 숨은 변수) | 11/20 | ✅ "일반화 (채팅 문체)": D1·D3·D4 8/8 도메인, D2 6/8(news·wiki는 τ 2021, 근소), D5 성립. G_chat r(2024) 합침 +0.176 [0.170, 0.181] z 39.5, 도메인별 +0.111~+0.249. 같은 모델의 기본판 대 채팅판 K +0.185 z 22.1: 기본판 글은 이탈 0(Mistral +0.004, MPT −0.000), 채팅판은 +0.18~+0.19. 지시 튜닝(gpt3 +0.046, cohere +0.021)은 사이. 도메인 크기 순서 예측은 틀림 |
 
 상태 표시: 🟢 실행 가능 · 🔵 진행 중 · ✅ 완료(main에 merge) · ⏸ 대기 · ❌ 중단(브랜치에 사유 기록) · ⚪ 예정
 
@@ -147,6 +148,16 @@ scripts/build_12_input.py    12 채점 입력: 01의 거르기, 버린 이유 �
 scripts/run_12_pod.sh        12 pod 실행: 생성 4개 → 입력 → DatedGPT 25칸 → Falcon 4칸 (각 12편 점검)
 scripts/thr13.py             문턱값 이전: H19 5% 문턱을 RAID·APT·H24·B에 그대로, FPR·TPR·J와 bootstrap (13)
 scripts/thr13_why.py         최근 사람 초록 오탐의 원인: LLM 주제(지식 시점) vs AI 표지어(다듬기) (13)
+scripts/dose14.py            14 용량-반응: 01·07의 흡수량 G로 기준 자리 손해 예측, D1~D5 판정 (부분 A)
+scripts/dose14_posthoc.py    14 사후: 달력 거리 항, 두 자리를 따로 둔 적합
+scripts/dose14_ext.py        14 부분 B(12의 생성기)·C(09 묶음 다섯 vintage 재채점)
+scripts/dose14_gen_posthoc.py 14 생성기별 용량(사후, C에서 사전 등록 검증)
+scripts/run_14_C.sh          14 부분 C 채점: 09 main 묶음을 다섯 vintage로
+scripts/fetch_raid_domains.py RAID를 받으면서 여덟 도메인의 공격 없음·sampling 행만 남기기 (15)
+scripts/build_15_input.py    15 입력: 도메인마다 원문 150개 × 사람 + 생성기 11개
+scripts/check_15.py          15 파이프라인 점검: 04의 RAID 초록 점수와 대조
+scripts/run_15.sh            15 채점: 점검 → 12 vintage
+scripts/domains15.py         15 도메인별 연도 곡선(G_chat, K, G_old), 01의 이탈 통계, D1~D5 판정
 tests/                    모델 없이 도는 단위 테스트
 ```
 

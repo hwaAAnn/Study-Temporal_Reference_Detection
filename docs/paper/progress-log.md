@@ -23,7 +23,7 @@
 | 06 PIT 연도 곡선 | `83eba1f` | ⏸ 명세·예측만. 채점 안 함(Runpod 필요). TiC-LM이 다른 계열 재현을 맡아서 선택 사항 |
 
 - 06이 고친 채점 코드는 선택 옵션만 더합니다(`--trust-remote-code`, `--prepend-bos`, `repo@commit`, `--limit`). 기본값의 동작은 그대로이고, merge 뒤 전체 테스트 53개가 통과했습니다.
-- main에 없는 브랜치는 `paper/draft`(이 기록)와 `backup/00-old-plan`(11/13 옛 00 계획, 로컬에만 있음)뿐입니다.
+- main에 없는 브랜치는 `paper/draft`(이 기록)와 `backup/00-old-plan`(11/13 옛 00 계획, `exp/00-k0-signal`로 대체됨, 11/19 백업으로 push)뿐입니다.
 
 ### 15 요점 (RAID 여덟 도메인, 14,400편 × DatedGPT 열두 vintage)
 
@@ -53,7 +53,6 @@
 1. 주입 실험: 같은 모델을 AI 글 x%를 섞어 이어서 학습해 인과를 직접 보이기(Runpod 약 $5~10).
 2. 15를 TiC-LM으로 다시 채점하기(로컬 약 하루).
 3. TiC-LM 3B로 크기 점검.
-4. `backup/00-old-plan`을 올릴지.
 
 ## 2026-11-15
 

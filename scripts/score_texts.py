@@ -15,6 +15,10 @@ Examples:
   # 00 experiment (2021 vs 2024) + 2018 for the difference-in-differences check
   python scripts/score_texts.py --input data/pairs.jsonl --out outputs/k0.jsonl \
       --models datedgpt/datedgpt-2018-base datedgpt/datedgpt-2021-base datedgpt/datedgpt-2024-base
+  # 06 experiment: PIT (architecture code in the repo, GPT-2 tokenizer without BOS), commit pinned
+  python scripts/score_texts.py --input data/01_all.jsonl --out outputs/pit1b_2013.jsonl --no-pair-truncate \
+      --models Diamegs/PIT-1B-201312@cdbf3f12286e02fcd4c9a2dfe5cfe5f357201160 \
+      --trust-remote-code --prepend-bos --dtype bfloat16 --batch-size 32
 """
 
 from __future__ import annotations
@@ -31,24 +35,38 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--models", nargs="+", required=True)
+    ap.add_argument("--models", nargs="+", required=True, help="hub ids; 'repo@commit' pins a revision")
     ap.add_argument("--max-tokens", type=int, default=200)
     ap.add_argument("--dtype", default="float16", choices=["float16", "bfloat16", "float32"],
                     help="GTX 1060 (Pascal): float16 (verify with check_models.py first). Cloud: bfloat16.")
     ap.add_argument("--batch-size", type=int, default=1, help="start at 1 on a 6GB GPU (8 works for 1.3B at 200 tokens)")
     ap.add_argument("--no-pair-truncate", action="store_true", help="do not cut a pair's texts to a common length")
+    ap.add_argument("--trust-remote-code", action="store_true",
+                    help="run the model code shipped in the repo (PIT); every model must be pinned with @commit")
+    ap.add_argument("--prepend-bos", action="store_true",
+                    help="put the tokenizer's BOS first when it adds none (GPT-2 tokenizer: <|endoftext|>)")
+    ap.add_argument("--limit", type=int, default=0, help="score only the first N texts (precision checks)")
     args = ap.parse_args()
+    if args.trust_remote_code and not all("@" in m for m in args.models):
+        raise SystemExit("--trust-remote-code needs every model pinned as repo@commit")
 
     rows = [json.loads(l) for l in Path(args.input).read_text(encoding="utf-8").splitlines() if l.strip()]
     items = normalise_rows(rows)
+    if args.limit:
+        items = items[:args.limit]
     texts = [it["text"] for it in items]
 
-    lps, ref_ids, ref_model = {}, None, None
-    for mid in args.models:
+    lps, revs, ref_ids, ref_model = {}, {}, None, None
+    for spec in args.models:
+        mid, _, rev = spec.partition("@")
         key = model_key(mid)
         if key in lps:
             raise SystemExit(f"duplicate model key {key!r}; give models distinct vintages")
-        lp, ids = token_logprobs(texts, mid, args.max_tokens, args.dtype, batch_size=args.batch_size)
+        lp, ids = token_logprobs(texts, mid, args.max_tokens, args.dtype, batch_size=args.batch_size,
+                                 revision=rev or None, trust_remote_code=args.trust_remote_code,
+                                 prepend_bos=args.prepend_bos)
+        if rev:
+            revs[key] = spec
         if ref_ids is None:
             ref_ids, ref_model = ids, mid
         elif ids != ref_ids:
@@ -67,6 +85,8 @@ def main() -> None:
             rec = {k: it[k] for k in ("id", "pair_id", "group", "label", "generator", "domain")}
             rec.update({"n_tokens": n, "n_tokens_full": n_full[i], "pair_truncate": not args.no_pair_truncate,
                         "dtype": args.dtype, "ids": ref_ids[i][1:n + 1]})
+            if revs:
+                rec["revision"] = revs
             rec["lp"] = {k: v[i][:n].round(5).tolist() for k, v in lps.items()}
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     print(f"wrote {len(items)} records to {out} (models: {', '.join(lps)})")

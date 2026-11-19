@@ -2,8 +2,8 @@
 
 Delta(x) = mean over kept tokens of [log p_new(x_t | x_<t) - log p_old(x_t | x_<t)]
 
-Both models must share a tokenizer (true for the DatedGPT family). Models are loaded one at a
-time so that two 1.3B models fit on a 6GB GPU.
+Both models must share a tokenizer (true for the DatedGPT family, and within the PIT family). Models
+are loaded one at a time so that two 1.3B models fit on a 6GB GPU.
 """
 
 from __future__ import annotations
@@ -14,9 +14,27 @@ from typing import Iterable
 import numpy as np
 
 
+def with_bos(ids: list[int], bos_id: int | None, max_tokens: int) -> list[int]:
+    """Put bos_id first unless the tokenizer already did, then cut to max_tokens (BOS included).
+
+    GPT-2-style tokenizers (PIT) add no BOS, while their training data starts every document with
+    <|endoftext|>. Without it the first word would be scored by nothing (it is never a target).
+    """
+    if bos_id is not None and (not ids or ids[0] != bos_id):
+        ids = [bos_id] + list(ids)
+    return list(ids)[:max_tokens]
+
+
 def token_logprobs(texts: Iterable[str], model_id: str, max_tokens: int = 200,
-                   dtype: str = "float16", device: str | None = None, batch_size: int = 4) -> tuple[list[np.ndarray], list[list[int]]]:
-    """Return per-text arrays of log p(x_t | x_<t) for t >= 1, plus the token ids used."""
+                   dtype: str = "float16", device: str | None = None, batch_size: int = 4,
+                   revision: str | None = None, trust_remote_code: bool = False,
+                   prepend_bos: bool = False) -> tuple[list[np.ndarray], list[list[int]]]:
+    """Return per-text arrays of log p(x_t | x_<t) for t >= 1, plus the token ids used.
+
+    revision pins the hub commit (also the commit of any remote code). trust_remote_code is needed for
+    models whose architecture ships in the repo (PIT); pass it only with a pinned, reviewed revision.
+    prepend_bos puts the tokenizer's BOS token first when the tokenizer does not add one itself.
+    """
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -24,11 +42,15 @@ def token_logprobs(texts: Iterable[str], model_id: str, max_tokens: int = 200,
 
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     torch_dtype = {"float16": torch.float16, "bfloat16": torch.bfloat16, "float32": torch.float32}[dtype]
-    tok = AutoTokenizer.from_pretrained(model_id)
-    model = AutoModelForCausalLM.from_pretrained(model_id, dtype=torch_dtype).to(device).eval()
+    tok = AutoTokenizer.from_pretrained(model_id, revision=revision)
+    model = AutoModelForCausalLM.from_pretrained(model_id, dtype=torch_dtype, revision=revision,
+                                                 trust_remote_code=trust_remote_code).to(device).eval()
 
     texts = list(texts)
-    ids_all = [tok(t, add_special_tokens=True)["input_ids"][:max_tokens] for t in texts]
+    bos_id = tok.bos_token_id if prepend_bos else None
+    if prepend_bos and bos_id is None:
+        raise SystemExit(f"{model_id}: --prepend-bos given but the tokenizer has no BOS token")
+    ids_all = [with_bos(tok(t, add_special_tokens=True)["input_ids"], bos_id, max_tokens) for t in texts]
     pad_id = tok.pad_token_id if tok.pad_token_id is not None else (tok.eos_token_id or 0)
     out: list[np.ndarray | None] = [None] * len(ids_all)
     order = sorted(range(len(ids_all)), key=lambda i: len(ids_all[i]))  # length-sorted batches, less padding
